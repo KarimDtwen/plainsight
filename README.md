@@ -46,9 +46,9 @@ flowchart TD
 
 | Piece | State |
 |---|---|
-| M0 — scaffold, CI, docs, skills | ✅ this commit |
-| M1 — ingestion + snippet + stats API | 🔜 |
-| M2 — dashboard + charts | ⬜ |
+| M0 — scaffold, CI, docs, skills | ✅ |
+| M1 — ingestion + snippet + stats API | ✅ this commit (Supabase project creation pending — assisted) |
+| M2 — dashboard + charts | 🔜 |
 | M3 — live counter + share links | ⬜ |
 | M4 — deploy + dogfood on [UniMatch](https://github.com/KarimDtwen/UniMatch) | ⬜ |
 | M5 — polish, screenshots, demo | ⬜ |

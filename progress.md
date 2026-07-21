@@ -4,7 +4,7 @@ _Last updated: 2026-07-21_
 
 ## TL;DR
 
-Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippet + FastAPI ingestion + Flutter-web dashboard. M0 (scaffold, CI, docs, skills) is **done**. Signature demo hook: in M4 the snippet goes on the live UniMatch web app so the dashboard shows real traffic.
+Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippet + FastAPI ingestion + Flutter-web dashboard. M0 and M1 (ingestion, snippet, stats API) are **done**. Signature demo hook: in M4 the snippet goes on the live UniMatch web app so the dashboard shows real traffic. **Blocked on Karim:** create the Supabase project (M1's only assisted step) so migrations can be applied and the DB-dependent endpoints go from "verified 500 without a DB" to actually working end to end.
 
 - Repo: https://github.com/KarimDtwen/plainsight · local `C:\flutter\projects\plainsight`
 - Design system + glass kit ported from UniMatch v3 (`lib/theme/`, `lib/ui/`) + new `chartSeries` token
@@ -17,7 +17,7 @@ Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippe
 - Remote: `origin` → `https://github.com/KarimDtwen/plainsight.git`, branch `main`
 - Flutter pinned 3.38.7 (matches local + CI) · Python 3.12.8 (`backend/runtime.txt`)
 - Backend venv: `backend/.venv` (git-ignored) — `.venv/Scripts/python -m pytest -q`
-- Supabase project: **not created yet** (M1, assisted)
+- Supabase project: **not created yet** — the one remaining assisted step blocking M1's DB-dependent endpoints from working live (code + migrations + tests are all done)
 - Render service / Firebase project: **not created yet** (M4, assisted)
 - Secrets: none exist yet; template in `backend/.env.example`; prod values will live in Render dashboard only
 - Work items: `PS-###` · commits: conventional types + PS tag
@@ -27,7 +27,7 @@ Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippe
 | M | Title | Status |
 |---|---|---|
 | 0 | Scaffold + repo + docs + CI + skills + Notion | ✅ `484587c` (+4 prior) — see 2026-07-21 section |
-| 1 | Ingestion + snippet + stats API | ⬜ |
+| 1 | Ingestion + snippet + stats API | ✅ `aed3568` (+3 prior) — code/tests done; Supabase project creation still pending |
 | 2 | Dashboard + charts | ⬜ |
 | 3 | Live counter + share links | ⬜ |
 | 4 | Deploy + dogfood on UniMatch | ⬜ |
@@ -35,9 +35,10 @@ Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippe
 
 ## Current state
 
-- `main` @ `484587c`, working tree clean (progress.md commit pending)
-- `flutter analyze` clean · 2 Flutter tests · 10 backend tests
-- App renders a placeholder glass card on the aurora gradient; backend serves `/health` only
+- `main` @ `aed3568`, working tree clean (progress.md commit pending)
+- `flutter analyze` clean · 2 Flutter tests · 51 backend tests
+- App still renders only the M0 placeholder (M2 builds the real dashboard); backend now serves the full M1 surface: `/health`, `/js/script.js`, `/collect`, `/auth/login`, `/sites`, `/sites/{id}/stats/*`, `/admin/rollup`
+- Verified live (backend.venv, plainsight code — not UniMatch's): health 200, snippet 200 with correct ACAO/cache/sendBeacon/pushState, login right/wrong password, unauth 401, authed-but-no-DB 500 (expected), /collect silent 202 for an unknown site key
 
 ## 🏗️ M0 — Scaffold, CI, docs, skills (2026-07-21) — done
 
@@ -54,15 +55,31 @@ Left intentionally: no fl_chart dep yet (M2), no supabase/aiohttp deps yet (M1 �
 
 ✅ `flutter analyze` clean · 2 Flutter tests · 10 backend tests
 
+## 📡 M1 — Ingestion, snippet, stats API (2026-07-21) — done (code); Supabase creation pending
+
+**Done & committed:**
+
+- **`PS-011..014`** `1020021` — services: `hashing.visitor_hash` (salted, no IP/UA stored), `salt_cache` (fetch-on-miss, UTC-day rotation), `geoip.country` (DB-IP mmdb, absent-file safe), `ua` (bot regex, browser family, device bucket), `ip.client_ip` (XFF-first); `db/` layer (lazy supabase-py client, sites/events/salts/stats wrappers, no ORM)
+- **`PS-011, PS-015`** `aed5f15` — `/collect` (always-202: unknown site, bot, malformed/oversized body, DB failure all silent-accept; production Origin-vs-domain soft check) + `plainsight.js` (~50 lines: sendBeacon text/plain, self-derived endpoint, SPA pushState/popstate hooks, DNT + localhost bail) + `/js/script.js` route
+- **`PS-017`** `e5f1e36` — admin password → JWT auth (`require_admin` dependency), sites CRUD (returns ready-to-paste snippet), stats endpoints (timeseries/breakdown/summary/live) with bucket/dimension/range validation, `/admin/rollup` manual fallback
+- **`PS-016..018`** `aed3568` — `db.stats` RPC wrappers, all routers wired into `main.py`, hermetic conftest grew an autouse forbid-real-Supabase-client fixture + module-state resets, migrations `0001–0006` (+ README index), `scripts/fetch_geoip.py` (build-time DB-IP download, never fails the build), `scripts/seed_events.py` (`--live` drip / `--backfill` demo history; hard-refuses any site with "unimatch" in its domain)
+
+**Verified live** (started the actual plainsight venv/code directly — a `preview_start({name})` lookup will resolve against the *primary* project's `.claude/launch.json`, i.e. UniMatch's, when both repos define a same-named config; that's what crashed the first attempt by loading UniMatch's old main.py): `/health` 200, `/js/script.js` 200 with correct ACAO/cache/sendBeacon/pushState markers, `/auth/login` right/wrong password, `/sites` 401 unauth → 500 authed-without-a-real-DB (expected, proves auth passes and the DB layer is the actual next blocker), `/collect` silent 202 for an unknown site key.
+
+Also added a test (`test_acao_star_survives_global_cors_middleware_for_real_customer_sites`) locking in the design's core guarantee after tracing Starlette's `CORSMiddleware` source: it only overwrites `/collect`'s explicit `ACAO: *` when the request's Origin matches the (dashboard-only) allowlist or the dev-only localhost regex — a real customer domain in production never matches either, so `*` reaches the browser untouched.
+
+Left intentionally: no real Supabase project yet, so `/sites`, `/stats/*`, and a true live-seed E2E loop can't be exercised end-to-end until Karim creates one and the migrations are applied.
+
+✅ `flutter analyze` clean · 2 Flutter tests · 51 backend tests
+
 ## Next steps (in order)
 
-1. ⬜ **PS-010 — Manual (Karim): create the Supabase project**, then apply migrations `0001–0003` in the SQL editor (I write them first)
-2. ⬜ PS-011..015 — `/collect` ingestion, salt/hash service, geoip, UA parse, the snippet itself
-3. ⬜ PS-016..018 — rollups + stats functions + pg_cron migration, `/stats/*` endpoints, `seed_events.py`
-4. ⬜ M2 — ApiService + login + sites + dashboard charts (add `fl_chart`)
-5. ⬜ M3 — live badge + share links
-6. ⬜ **M4 — Manual (Karim): Render service + Firebase project**, then dogfood snippet into UniMatch `web/index.html`
-7. ⬜ M5 — demo seed, screenshots, GIF, README final
+1. ⬜ **Manual (Karim): create the Supabase project**, then apply migrations `0001–0006` in the SQL editor in order (enable the `pg_cron` extension first for `0006`) — see `backend/migrations/README.md` for verification queries
+2. ⬜ Once Supabase exists: run `seed_events.py --live` end to end and confirm the DB-dependent endpoints actually return data (not just the expected 500s)
+3. ⬜ M2 — ApiService + login + sites + dashboard charts (add `fl_chart`)
+4. ⬜ M3 — live badge + share links
+5. ⬜ **M4 — Manual (Karim): Render service + Firebase project**, then dogfood snippet into UniMatch `web/index.html`
+6. ⬜ M5 — demo seed, screenshots, GIF, README final
 
 ## Gotchas / things to know
 
@@ -73,14 +90,17 @@ Left intentionally: no fl_chart dep yet (M2), no supabase/aiohttp deps yet (M1 �
 - Client IP on Render = first entry of `X-Forwarded-For` (proxy), fall back to `request.client.host`.
 - `/collect` must stay a CORS *simple request* (text/plain body) — adding a JSON content-type would trigger preflights from every tracked site.
 - Windows CRLF warnings on commit are cosmetic; don't "fix" line endings repo-wide.
+- **`preview_start({name: ...})` resolves `.claude/launch.json` against the session's primary project directory, not whichever repo you're currently working in.** UniMatch and plainsight both define a `backend-fastapi` config; starting it by name from a plainsight-focused session loaded UniMatch's (old, single-file) `main.py` and crashed on `create_client` with a placeholder key. Fix: start plainsight's backend directly (`backend/.venv/Scripts/python.exe -m uvicorn main:app ...` with an explicit cwd), then `preview_start({url: "http://localhost:8000/..."})` to view/verify it in the Browser pane.
+- `/collect` always returns 202 even when the Supabase URL is a placeholder — `db_sites.get_site_by_key` raises inside `create_client`, but the broad `except Exception` in the route catches it and logs instead of surfacing. This is correct ingestion behavior (never break the host page) but means "202 back" is not proof the event was actually stored — check the uvicorn log or (once Supabase exists) the `events` table.
 
 ## How to run / verify
 
 ```bash
 # Backend
 cd backend
-.venv/Scripts/python -m pytest -q          # 10 tests
+.venv/Scripts/python -m pytest -q          # 51 tests
 .venv/Scripts/python -m uvicorn main:app --reload --port 8000
+# once a site exists: .venv/Scripts/python scripts/seed_events.py --live --site SITE_KEY
 
 # App
 flutter analyze

@@ -1,9 +1,12 @@
 """Hermetic test harness (ported from UniMatch).
 
-Tests never touch the network, a real database, or secrets: the app module is
-imported fresh per test with a controlled test environment. When supabase-py
-and aiohttp land (M1), this file also grows the Forbidden* fakes that raise on
-any real DB/HTTP attempt, keeping CI secret-free.
+Tests never touch the network, a real database, or secrets:
+- the app module is imported fresh per test under a controlled test env;
+- ``supabase.create_client`` is replaced with a guard that raises, so any
+  code path that would reach a real DB fails loudly — tests fake the ``db``
+  layer functions instead;
+- per-test module state (client singleton, site cache, salt cache, geoip
+  reader) is reset automatically.
 """
 
 from __future__ import annotations
@@ -29,6 +32,30 @@ TEST_ENV = {
 }
 
 
+def _forbidden_create_client(*_args, **_kwargs):
+    raise RuntimeError(
+        "Hermetic tests must not create a Supabase client — "
+        "monkeypatch the db-layer function your code calls instead."
+    )
+
+
+@pytest.fixture(autouse=True)
+def _hermetic(monkeypatch):
+    """Forbid real Supabase clients and reset cached module state."""
+    import db.client as db_client_module
+
+    monkeypatch.setattr(db_client_module, "create_client", _forbidden_create_client)
+    yield
+    import db.client
+    import db.sites
+    from services import geoip, salt_cache
+
+    db.client.reset_for_tests()
+    db.sites.reset_for_tests()
+    geoip.reset_for_tests()
+    salt_cache.reset_for_tests()
+
+
 @pytest.fixture()
 def app_module(monkeypatch):
     """Import ``main`` fresh under the test environment."""
@@ -47,3 +74,11 @@ def client(app_module):
     from fastapi.testclient import TestClient
 
     return TestClient(app_module.app)
+
+
+@pytest.fixture()
+def admin_headers(app_module):
+    from services import auth as auth_service
+
+    token = auth_service.create_token(app_module.app.state.settings)
+    return {"Authorization": f"Bearer {token}"}

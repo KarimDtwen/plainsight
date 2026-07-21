@@ -13,7 +13,7 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
 from config import Settings  # noqa: E402
-from routers import health  # noqa: E402
+from routers import admin, auth, collect, health, sites, snippet, stats  # noqa: E402
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -21,8 +21,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Plainsight", version="0.1.0")
     app.state.settings = settings
 
-    # Locked to the dashboard origins; /collect deliberately bypasses CORS
-    # ceremony via simple-request ingestion (arrives in M1, PS-011).
+    # Locked to the dashboard origins. /collect and /js/script.js bypass CORS
+    # ceremony on purpose: simple requests + explicit ACAO:* on their responses.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.allowed_origins),
@@ -33,6 +33,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(snippet.router)
+    app.include_router(collect.router)
+    app.include_router(auth.router)
+    app.include_router(sites.router)
+    app.include_router(stats.router)
+    app.include_router(admin.router)
     return app
 
 

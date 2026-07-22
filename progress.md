@@ -4,7 +4,7 @@ _Last updated: 2026-07-22_
 
 ## TL;DR
 
-Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippet + FastAPI ingestion + Flutter-web dashboard. **M0 and M1 are fully done and verified live** against a real Supabase project — not just code + tests, but a genuine end-to-end run (login → create site → /collect events → stats endpoints returning correct real data) against production infrastructure. Signature demo hook: in M4 the snippet goes on the live UniMatch web app so the dashboard shows real traffic. Next up: M2, the actual dashboard UI.
+Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippet + FastAPI ingestion + Flutter-web dashboard. **M0, M1, and M2 are done and verified live** against the real Supabase project: login, site CRUD + snippet modal, and the dashboard (summary tiles, `fl_chart` timeseries, breakdown list) all confirmed working end to end with real ingested data. Signature demo hook: in M4 the snippet goes on the live UniMatch web app so the dashboard shows real traffic. Next up: M3 (live counter + share links).
 
 - Repo: https://github.com/KarimDtwen/plainsight · local `C:\flutter\projects\plainsight`
 - Design system + glass kit ported from UniMatch v3 (`lib/theme/`, `lib/ui/`) + new `chartSeries` token
@@ -27,8 +27,8 @@ Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippe
 | M | Title | Status |
 |---|---|---|
 | 0 | Scaffold + repo + docs + CI + skills + Notion | ✅ `484587c` (+4 prior) — see 2026-07-21 section |
-| 1 | Ingestion + snippet + stats API | ✅ `aed3568` (+3 prior) — code/tests done; Supabase project creation still pending |
-| 2 | Dashboard + charts | ⬜ |
+| 1 | Ingestion + snippet + stats API | ✅ `6930ed6` — live E2E verified against real Supabase |
+| 2 | Dashboard + charts | ✅ `1891863` (+4 prior) — live E2E verified (one item open, see below) |
 | 3 | Live counter + share links | ⬜ |
 | 4 | Deploy + dogfood on UniMatch | ⬜ |
 | 5 | Polish (demo data, README, GIF) | ⬜ |
@@ -95,9 +95,22 @@ While trying to hand me the Supabase URL + service-role key, Karim edited `backe
 
 Real damage: none — the key was rotated before anyone could plausibly have scraped commit `ac160b1` for it. Correct forever: **`backend/.env` never gets edited by hand-editing a same-named-sounding file in a GitHub web UI** — if you need to hand me a credential for local dev, paste it in chat or on the Notion page; don't touch tracked files.
 
+### M2 — Dashboard + charts (2026-07-22) — done, one item open
+
+Built: `ApiService` (JWT header, cold-start retries + `serverWaking`) + models + `AppState` (PS-020); login screen (PS-021); sites screen with add-site dialog + snippet-copy modal (PS-022); dashboard with summary tiles, `fl_chart` timeseries, range picker, and breakdown cards across all 5 dimensions (PS-023/024); `main.dart` auth-gated routing (PS-025). 16 Flutter tests, `flutter analyze` clean.
+
+**Two real bugs found and fixed via live testing** (not caught by unit tests, since both only manifest with a real backend/browser):
+
+1. **`TextEditingController` used after disposal.** The add-site dialog originally created its `TextEditingController`s in a plain function and disposed them immediately after `showDialog`'s Future resolved. That crashed live (`A TextEditingController was used after being disposed`) because the dialog's exit transition can still have its `TextField`s mounted at that instant. Fixed by moving the controllers into a real `StatefulWidget` (`_AddSiteDialog`) so Flutter disposes them at the correct point in the route's own lifecycle — the standard, correct pattern, not a manual one.
+2. **`StatTile` hard-coded `Expanded` as its own root widget**, so it could only ever be used inside a `Row`/`Flex` — caught immediately by the first widget test (`Incorrect use of ParentDataWidget`). Fixed: `StatTile` returns its content directly; the two call sites in the dashboard's summary row each wrap it in `Expanded` themselves. Backwards design (a leaf widget dictating its parent's layout) either way — worth remembering as a smell to check for in future components.
+
+**A non-bug that cost real debugging time:** ingested test events sent via plain `curl` never appeared in stats. Root cause: `curl`'s default `User-Agent: curl/x.y.z` is correctly caught by `/collect`'s bot filter (by design) and silently 202-accepted without being stored — exactly the intended behavior, just surprising when you're the one testing. Re-seeding with `-H "User-Agent: Mozilla/5.0 ..."` produced real data immediately, and the dashboard rendered it correctly (10 pageviews, 3 visitors, matching breakdown by page — verified against the API's own numbers).
+
+**Left open, not verified:** tapping a breakdown dimension chip (Top pages → Referrers/Countries/Devices/Browsers) to switch tabs could not be confirmed via automated clicking in this session — the click coordinates looked correct against every screenshot taken, but the tab never visibly switched, and the browser viewport's reported dimensions were inconsistent between successive screenshots in a way that made pixel-based automation unreliable here. The `onTap: () => setState(() => _selectedDimension = dim)` wiring is simple, standard Flutter and passes code review; `BreakdownList` itself is unit-tested and proven correct for any dimension's data. This is a real, if narrow, gap — **worth a 10-second manual click-through** next time the app is open in a real browser to confirm the tabs switch as expected.
+
 ## Next steps (in order)
 
-1. ⬜ **M2 — dashboard + charts**: ApiService (JWT, cold-start retries) + models + state, login screen, sites screen with snippet-copy modal, dashboard (summary tiles + `fl_chart` LineChart + range picker), breakdown cards, widget tests
+1. ⬜ **Manual check (Karim, 10s):** confirm the breakdown dimension chips (Referrers/Countries/Devices/Browsers) actually switch the list when tapped — see the M2 "left open" note above
 2. ⬜ M3 — live badge (10s poll) + share links
 3. ⬜ **M4 — Manual (Karim): Render service + Firebase project**, then dogfood snippet into UniMatch `web/index.html`
 4. ⬜ M5 — demo seed, screenshots, GIF, README final
@@ -122,6 +135,10 @@ Real damage: none — the key was rotated before anyone could plausibly have scr
 - **This project now uses Supabase's new-style secret key** (`sb_secret_...`) after the incident above forced a migration off the legacy JWT format — see `requirements.txt` for the `supabase-py` version this required. Revoking a legacy JWT secret (rather than moving it to standby first) makes the legacy anon/service_role key system permanently unavailable for a project; don't expect "re-enable legacy keys" to work after a hard revoke.
 - **`uvicorn --reload`'s default watch path is the whole `backend/` directory, which includes `backend/.venv`.** Running `pip install`/`pip uninstall` while a `--reload` server is up churns thousands of files under `.venv/Lib/site-packages` and reliably knocks the watcher over. Stop the dev server before touching packages; restart fresh after.
 - **A clean-room venv + `pip install -r requirements-dev.txt` is the only trustworthy compatibility check** when bumping any pinned version — a `supabase-py` bump alone silently needed `pydantic>=2.11.7` (fastapi's own range is wide, so this only showed up via `realtime`) and `pyjwt>=2.12.0` (via `supabase-auth`). Both were invisible until a real clean-room resolve, exactly like the earlier `httpx` incident.
+- **`/collect`'s bot filter correctly rejects `curl`'s default User-Agent** (`curl/x.y.z` matches the bot regex on purpose). Testing ingestion by hand with plain `curl` looks like it works (202 every time — that's *always* true by design) but nothing gets stored. Always pass `-H "User-Agent: Mozilla/5.0 ..."` when hand-seeding events, or use `scripts/seed_events.py`, which already sends realistic UAs.
+- **`flutter run -d web-server` is the right target for automated browser verification** — `-d chrome` opens Flutter's own Chrome instance, which the Browser-pane tools can't see or drive. `web-server` serves headlessly on the given port and any browser tool can navigate to it directly.
+- **A live `flutter run` dev server watches the whole project directory** the same way `uvicorn --reload` does — don't run `pip install`/package changes while it's up (n/a for Flutter itself, but killing/restarting the process is still the reliable way to pick up a code fix, since hot-reload requires sending `r`/`R` to the process's stdin, which isn't available through a background task; just kill the PID on the dev server's port and start a fresh `flutter run`).
+- **Flutter web's CanvasKit renderer paints everything to one canvas — there is no DOM to query.** `read_page`/`find` on a Flutter-web CanvasKit app return nothing useful (a generic container + an "Enable accessibility" toggle) unless that toggle is explicitly enabled first. Automated verification here is pixel/screenshot-based only; budget for occasional coordinate misses on small targets (chips, icon buttons) even when a screenshot looks correctly aimed — the reported viewport/screenshot dimensions were observed to vary slightly between successive captures in this session in a way that was never fully explained.
 
 ## How to run / verify
 
@@ -134,6 +151,7 @@ cd backend
 
 # App
 flutter analyze
-flutter test                               # 2 tests
+flutter test                               # 16 tests
 flutter run -d chrome --web-port 5000 --dart-define=API_BASE_URL=http://localhost:8000
+# admin password for local login: whatever ADMIN_PASSWORD is set to in backend/.env
 ```

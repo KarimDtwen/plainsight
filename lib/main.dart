@@ -1,63 +1,62 @@
 import 'package:flutter/material.dart';
 
-import 'theme/app_colors.dart';
-import 'theme/app_spacing.dart';
+import 'screens/login_screen.dart';
+import 'screens/sites_screen.dart';
+import 'state/app_state.dart';
 import 'theme/app_theme.dart';
-import 'theme/app_typography.dart';
 import 'ui/animated_gradient_background.dart';
 
 void main() => runApp(const PlainsightApp());
 
-class PlainsightApp extends StatelessWidget {
+class PlainsightApp extends StatefulWidget {
   const PlainsightApp({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        title: 'Plainsight',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light(),
-        darkTheme: AppTheme.dark(),
-        themeMode: ThemeMode.system,
-        // One shared gradient drift controller above every route (same pattern
-        // as UniMatch: GradientScaffold screens read it via GradientMotion.of).
-        builder: (context, child) => GradientMotion(child: child!),
-        home: const _PlaceholderHome(),
+  State<PlainsightApp> createState() => _PlainsightAppState();
+}
+
+class _PlainsightAppState extends State<PlainsightApp> {
+  final AppState _appState = AppState();
+
+  @override
+  void dispose() {
+    _appState.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AppStateProvider(
+        state: _appState,
+        child: MaterialApp(
+          title: 'Plainsight',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+          themeMode: ThemeMode.system,
+          // One shared gradient drift controller above every route (same
+          // pattern as UniMatch: GradientScaffold reads it via GradientMotion.of).
+          builder: (context, child) => GradientMotion(child: child!),
+          home: const _AuthGate(),
+        ),
       );
 }
 
-/// M0 placeholder — proves the ported design system renders end-to-end.
-/// Replaced by the login + dashboard flow in M2 (PS-020..025).
-class _PlaceholderHome extends StatelessWidget {
-  const _PlaceholderHome();
+/// Shows the login screen or the sites list depending on [AppState], and a
+/// blank gradient while a persisted session is being restored on launch.
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    return GradientScaffold(
-      body: Center(
-        child: GlassSurface(
-          borderRadius: BorderRadius.circular(t.radiusXl),
-          boxShadow: t.shadowCardLg,
-          padding: EdgeInsets.symmetric(horizontal: t.xxl, vertical: t.xl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Plainsight',
-                  style: AppType.displayM
-                      .copyWith(color: context.scheme.onSurface)),
-              SizedBox(height: t.s),
-              Text('Privacy-first web analytics — no cookies, one tiny script.',
-                  textAlign: TextAlign.center,
-                  style: AppType.body
-                      .copyWith(color: context.scheme.onSurfaceVariant)),
-              SizedBox(height: t.l),
-              Text('M0 scaffold · dashboard lands in M2',
-                  style: AppType.caption
-                      .copyWith(color: context.scheme.onSurfaceVariant)),
-            ],
-          ),
-        ),
-      ),
+    return ListenableBuilder(
+      listenable: AppStateProvider.of(context),
+      builder: (context, _) {
+        final app = AppStateProvider.of(context);
+        if (app.initializing) {
+          return const GradientScaffold(body: SizedBox.expand());
+        }
+        return app.isLoggedIn ? const SitesScreen() : const LoginScreen();
+      },
     );
   }
 }

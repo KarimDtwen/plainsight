@@ -19,6 +19,33 @@ void main() {
     expect(site.installSnippet, contains('<script'));
   });
 
+  test('Site.copyWith sets or clears shareSlug independently of other fields',
+      () {
+    final site = Site.fromJson({
+      'id': 'abc-123',
+      'site_key': 'deadbeef',
+      'domain': 'example.com',
+      'name': 'My Blog',
+      'share_slug': null,
+      'created_at': '2026-07-22T09:25:24.258362+00:00',
+      'install_snippet': null,
+    });
+    final shared = site.copyWith(shareSlug: 'abc123xyz');
+    expect(shared.shareSlug, 'abc123xyz');
+    expect(shared.id, site.id);
+    expect(shared.name, site.name);
+
+    final revoked = shared.copyWith(clearShareSlug: true);
+    expect(revoked.shareSlug, isNull);
+  });
+
+  test('PublicSite.fromJson parses the /public/{slug}/site response', () {
+    final site =
+        PublicSite.fromJson({'name': 'My Blog', 'domain': 'example.com'});
+    expect(site.name, 'My Blog');
+    expect(site.domain, 'example.com');
+  });
+
   test('StatsSummary.fromJson defaults missing fields to zero', () {
     final summary = StatsSummary.fromJson(const {});
     expect(summary.pageviews, 0);

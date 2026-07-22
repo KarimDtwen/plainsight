@@ -1,4 +1,4 @@
-enum ApiErrorKind { timeout, offline, unauthorized, server }
+enum ApiErrorKind { timeout, offline, unauthorized, notFound, server }
 
 class ApiException implements Exception {
   const ApiException(this.kind, this.message);

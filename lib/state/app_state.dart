@@ -100,6 +100,25 @@ class AppState extends ChangeNotifier {
     _sites = _sites.where((s) => s.id != id).toList();
     notifyListeners();
   }
+
+  Future<Site> createShareLink(String id) async {
+    final slug = await _api.createShareSlug(id);
+    return _applySiteUpdate(id, (s) => s.copyWith(shareSlug: slug));
+  }
+
+  Future<Site> revokeShareLink(String id) async {
+    await _api.revokeShareSlug(id);
+    return _applySiteUpdate(id, (s) => s.copyWith(clearShareSlug: true));
+  }
+
+  /// Applies [update] to the site with [id] in the in-memory list (so the
+  /// sites screen reflects it without a refetch) and returns the new value.
+  Site _applySiteUpdate(String id, Site Function(Site) update) {
+    final updated = update(_sites.firstWhere((s) => s.id == id));
+    _sites = [for (final s in _sites) if (s.id == id) updated else s];
+    notifyListeners();
+    return updated;
+  }
 }
 
 class AppStateProvider extends InheritedNotifier<AppState> {

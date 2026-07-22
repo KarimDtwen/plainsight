@@ -28,6 +28,30 @@ class Site {
         createdAt: DateTime.parse(json['created_at'] as String),
         installSnippet: json['install_snippet'] as String?,
       );
+
+  Site copyWith({String? shareSlug, bool clearShareSlug = false}) => Site(
+        id: id,
+        siteKey: siteKey,
+        domain: domain,
+        name: name,
+        shareSlug: clearShareSlug ? null : (shareSlug ?? this.shareSlug),
+        createdAt: createdAt,
+        installSnippet: installSnippet,
+      );
+}
+
+/// `GET /public/{slug}/site` — the read-only header info a share-link
+/// visitor sees, without exposing the real site id or key.
+class PublicSite {
+  const PublicSite({required this.name, required this.domain});
+
+  final String name;
+  final String domain;
+
+  factory PublicSite.fromJson(Map<String, dynamic> json) => PublicSite(
+        name: json['name'] as String,
+        domain: json['domain'] as String,
+      );
 }
 
 /// One bucket of `GET /stats/timeseries`.

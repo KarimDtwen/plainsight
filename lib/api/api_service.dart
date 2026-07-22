@@ -95,6 +95,25 @@ class ApiService {
     if (response.statusCode != 204) _throwIfUnauthorizedOrError(response);
   }
 
+  /// (Re)generates the site's share link, revoking any previous one.
+  Future<String?> createShareSlug(String siteId) async {
+    final response = await _send(() => http.post(
+          Uri.parse('$_baseUrl/sites/$siteId/share-slug'),
+          headers: _authHeaders,
+        ));
+    _throwIfUnauthorizedOrError(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return body['share_slug'] as String?;
+  }
+
+  Future<void> revokeShareSlug(String siteId) async {
+    final response = await _send(() => http.delete(
+          Uri.parse('$_baseUrl/sites/$siteId/share-slug'),
+          headers: _authHeaders,
+        ));
+    if (response.statusCode != 204) _throwIfUnauthorizedOrError(response);
+  }
+
   // ── Stats ──────────────────────────────────────────────────────────────
 
   Future<List<StatsPoint>> timeseries({
@@ -151,6 +170,76 @@ class ApiService {
     return StatsSummary.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
+  Future<int> live(String siteId) async {
+    final response = await _send(() => http.get(
+          Uri.parse('$_baseUrl/sites/$siteId/stats/live'),
+          headers: _authHeaders,
+        ));
+    _throwIfUnauthorizedOrError(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['online'] as num).toInt();
+  }
+
+  // ── Public (share link — no auth) ─────────────────────────────────────
+
+  Future<PublicSite> publicSite(String slug) async {
+    final response = await _send(() => http.get(Uri.parse('$_baseUrl/public/$slug/site')));
+    _throwIfNotFoundOrError(response);
+    return PublicSite.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  Future<StatsSummary> publicSummary({
+    required String slug,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/public/$slug/stats/summary')
+        .replace(queryParameters: {'from': _isoDate(from), 'to': _isoDate(to)});
+    final response = await _send(() => http.get(uri));
+    _throwIfNotFoundOrError(response);
+    return StatsSummary.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  Future<List<StatsPoint>> publicTimeseries({
+    required String slug,
+    required DateTime from,
+    required DateTime to,
+    required String bucket,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/public/$slug/stats/timeseries').replace(
+        queryParameters: {'from': _isoDate(from), 'to': _isoDate(to), 'bucket': bucket});
+    final response = await _send(() => http.get(uri));
+    _throwIfNotFoundOrError(response);
+    final list = jsonDecode(response.body) as List;
+    return list.map((e) => StatsPoint.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<BreakdownRow>> publicBreakdown({
+    required String slug,
+    required BreakdownDimension dim,
+    required DateTime from,
+    required DateTime to,
+    int limit = 8,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/public/$slug/stats/breakdown').replace(queryParameters: {
+      'dim': dim.apiValue,
+      'from': _isoDate(from),
+      'to': _isoDate(to),
+      'limit': '$limit',
+    });
+    final response = await _send(() => http.get(uri));
+    _throwIfNotFoundOrError(response);
+    final list = jsonDecode(response.body) as List;
+    return list.map((e) => BreakdownRow.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<int> publicLive(String slug) async {
+    final response = await _send(() => http.get(Uri.parse('$_baseUrl/public/$slug/stats/live')));
+    _throwIfNotFoundOrError(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['online'] as num).toInt();
+  }
+
   // ── Internals ──────────────────────────────────────────────────────────
 
   String _isoDate(DateTime d) =>
@@ -160,6 +249,17 @@ class ApiService {
     if (response.statusCode == 401) {
       throw const ApiException(
           ApiErrorKind.unauthorized, 'Session expired — please log in again.');
+    }
+    if (response.statusCode >= 400) {
+      throw ApiException(
+          ApiErrorKind.server, 'Request failed (${response.statusCode}).');
+    }
+  }
+
+  void _throwIfNotFoundOrError(http.Response response) {
+    if (response.statusCode == 404) {
+      throw const ApiException(
+          ApiErrorKind.notFound, 'This share link is no longer active.');
     }
     if (response.statusCode >= 400) {
       throw ApiException(

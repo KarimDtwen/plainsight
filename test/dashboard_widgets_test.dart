@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:plainsight/models/models.dart';
 import 'package:plainsight/theme/app_theme.dart';
 import 'package:plainsight/widgets/breakdown_list.dart';
+import 'package:plainsight/widgets/live_badge.dart';
 import 'package:plainsight/widgets/stat_tile.dart';
 import 'package:plainsight/widgets/timeseries_chart.dart';
 
@@ -73,6 +74,29 @@ void main() {
         (tester) async {
       await tester.pumpWidget(wrap(const BreakdownList(rows: [])));
       expect(find.text('No data in this range yet'), findsOneWidget);
+    });
+  });
+
+  group('LiveBadge', () {
+    // LiveBadge's pulse AnimationController repeats forever, same as the
+    // gradient background — pump fixed durations here, never pumpAndSettle.
+    testWidgets('shows the online count once the fetch resolves',
+        (tester) async {
+      await tester.pumpWidget(wrap(LiveBadge(fetchOnline: () async => 3)));
+      expect(find.text('Live'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text('3 online now'), findsOneWidget);
+      // Unmount so the 10s poll Timer.periodic is cancelled — a still-pending
+      // Timer at teardown otherwise fails the test.
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('stays on "Live" if the fetch throws', (tester) async {
+      await tester.pumpWidget(wrap(
+          LiveBadge(fetchOnline: () async => throw Exception('boom'))));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text('Live'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
     });
   });
 }

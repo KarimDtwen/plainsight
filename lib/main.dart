@@ -17,9 +17,9 @@ void main() {
 
 /// A share link is public — it must render without the auth gate, since a
 /// stranger who never logs in opens it directly by URL.
-String? _shareSlugFromUrl() {
+String? _shareSlugFromPath(String? path) {
   final segments =
-      Uri.base.path.split('/').where((s) => s.isNotEmpty).toList();
+      (path ?? '').split('/').where((s) => s.isNotEmpty).toList();
   return segments.length == 2 && segments[0] == 'share' ? segments[1] : null;
 }
 
@@ -41,7 +41,6 @@ class _PlainsightAppState extends State<PlainsightApp> {
 
   @override
   Widget build(BuildContext context) {
-    final shareSlug = _shareSlugFromUrl();
     return AppStateProvider(
       state: _appState,
       child: MaterialApp(
@@ -53,9 +52,20 @@ class _PlainsightAppState extends State<PlainsightApp> {
         // One shared gradient drift controller above every route (same
         // pattern as UniMatch: GradientScaffold reads it via GradientMotion.of).
         builder: (context, child) => GradientMotion(child: child!),
-        home: shareSlug != null
-            ? ShareScreen(slug: shareSlug)
-            : const _AuthGate(),
+        // Plain Navigator 1.0 (no router package), but routed through
+        // onGenerateRoute rather than a bare `home:` — a `home:` route has no
+        // name, so Flutter's web URL sync reports "/" back to the browser on
+        // the very first frame and silently clobbers a `/share/<slug>` deep
+        // link. Naming the initial route from the incoming URL makes the
+        // Navigator report *that* path back instead, so a page reload on a
+        // share link keeps working, not just the first click-through.
+        initialRoute: Uri.base.path,
+        onGenerateRoute: (settings) {
+          final slug = _shareSlugFromPath(settings.name);
+          final page =
+              slug != null ? ShareScreen(slug: slug) : const _AuthGate();
+          return MaterialPageRoute(builder: (_) => page, settings: settings);
+        },
       ),
     );
   }

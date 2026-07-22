@@ -26,7 +26,7 @@ TEST_ENV = {
     "SUPABASE_URL": "https://tests.supabase.co",
     "SUPABASE_SERVICE_ROLE_KEY": "test-key",
     "ADMIN_PASSWORD": "test-password",
-    "JWT_SECRET": "test-jwt-secret",
+    "JWT_SECRET": "test-jwt-secret-at-least-32-bytes-long",
     "ALLOWED_ORIGINS": "",
     "JWT_TTL_HOURS": "168",
 }

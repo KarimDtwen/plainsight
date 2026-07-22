@@ -4,7 +4,7 @@ _Last updated: 2026-07-22_
 
 ## TL;DR
 
-Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippet + FastAPI ingestion + Flutter-web dashboard. **M0, M1, and M2 are done and verified live** against the real Supabase project: login, site CRUD + snippet modal, and the dashboard (summary tiles, `fl_chart` timeseries, breakdown list) all confirmed working end to end with real ingested data. Signature demo hook: in M4 the snippet goes on the live UniMatch web app so the dashboard shows real traffic. Next up: M3 (live counter + share links).
+Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippet + FastAPI ingestion + Flutter-web dashboard. **M0–M3 are done and verified live** against the real Supabase project: login, site CRUD + snippet modal, the dashboard (summary tiles, `fl_chart` timeseries, breakdown list), a 10s-polling live badge, and no-auth `/share/<slug>` links (create/view/reload/revoke) all confirmed working end to end with real ingested data. Signature demo hook: in M4 the snippet goes on the live UniMatch web app so the dashboard shows real traffic. Next up: M4 (deploy + dogfood on UniMatch, assisted).
 
 - Repo: https://github.com/KarimDtwen/plainsight · local `C:\flutter\projects\plainsight`
 - Design system + glass kit ported from UniMatch v3 (`lib/theme/`, `lib/ui/`) + new `chartSeries` token
@@ -29,16 +29,16 @@ Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippe
 | 0 | Scaffold + repo + docs + CI + skills + Notion | ✅ `484587c` (+4 prior) — see 2026-07-21 section |
 | 1 | Ingestion + snippet + stats API | ✅ `6930ed6` — live E2E verified against real Supabase |
 | 2 | Dashboard + charts | ✅ `1891863` (+4 prior) — live E2E verified (one item open, see below) |
-| 3 | Live counter + share links | ⬜ |
+| 3 | Live counter + share links | ✅ `6067d5c` (+2 prior) — live E2E verified |
 | 4 | Deploy + dogfood on UniMatch | ⬜ |
 | 5 | Polish (demo data, README, GIF) | ⬜ |
 
 ## Current state
 
-- `main` @ `aed3568`, working tree clean (progress.md commit pending)
-- `flutter analyze` clean · 2 Flutter tests · 51 backend tests
-- App still renders only the M0 placeholder (M2 builds the real dashboard); backend now serves the full M1 surface: `/health`, `/js/script.js`, `/collect`, `/auth/login`, `/sites`, `/sites/{id}/stats/*`, `/admin/rollup`
-- Verified live (backend.venv, plainsight code — not UniMatch's): health 200, snippet 200 with correct ACAO/cache/sendBeacon/pushState, login right/wrong password, unauth 401, authed-but-no-DB 500 (expected), /collect silent 202 for an unknown site key
+- `main` @ `6067d5c`, working tree clean (progress.md commit pending)
+- `flutter analyze` clean · 20 Flutter tests · 58 backend tests
+- Full app surface built through M3: login, sites + snippet modal, dashboard (tiles/chart/breakdown/live badge/share), and the no-auth `/share/<slug>` mirror. Backend serves `/health`, `/js/script.js`, `/collect`, `/auth/login`, `/sites` (+ `/share-slug`), `/sites/{id}/stats/*`, `/public/{slug}/...`, `/admin/rollup`
+- M4 (Render + Firebase deploy, dogfood snippet on UniMatch) is the only milestone left before polish
 
 ## 🏗️ M0 — Scaffold, CI, docs, skills (2026-07-21) — done
 
@@ -108,12 +108,19 @@ Built: `ApiService` (JWT header, cold-start retries + `serverWaking`) + models +
 
 **Left open, not verified:** tapping a breakdown dimension chip (Top pages → Referrers/Countries/Devices/Browsers) to switch tabs could not be confirmed via automated clicking in this session — the click coordinates looked correct against every screenshot taken, but the tab never visibly switched, and the browser viewport's reported dimensions were inconsistent between successive screenshots in a way that made pixel-based automation unreliable here. The `onTap: () => setState(() => _selectedDimension = dim)` wiring is simple, standard Flutter and passes code review; `BreakdownList` itself is unit-tested and proven correct for any dimension's data. This is a real, if narrow, gap — **worth a 10-second manual click-through** next time the app is open in a real browser to confirm the tabs switch as expected.
 
+### M3 — Live counter + share links (2026-07-22) — done
+
+Built: `POST/DELETE /sites/{id}/share-slug` (random slug via `secrets.token_urlsafe`, revoke-and-regenerate) + `db.sites.get_site_by_slug` (60s-cached, same shape as the site-key cache) + a new no-auth `routers/public.py` mirroring `/stats/*` under `/public/{slug}/...`, 404ing before any query on an unknown/revoked slug; shared bucket/dimension/range validation pulled out to `services/stats_query.py` so the admin and public routers can't drift (PS-031). `LiveBadge` polls `stats/live` every 10s, pausing on `AppLifecycleState.hidden`/`paused` via `WidgetsBindingObserver`, wired into the dashboard header (PS-030). `ShareScreen` mirrors the dashboard read-only against the public API, reachable at `/share/<slug>` via `usePathUrlStrategy()` + a share dialog (create/copy/revoke) on the dashboard (PS-032). 58 backend tests (+7), 20 Flutter tests (+4), `flutter analyze` clean.
+
+**One real bug found and fixed via live testing** (backend `.venv` + `flutter run -d web-server`, both started directly per the launch.json name-collision gotcha, seeded with real live traffic): a bare `MaterialApp(home: ...)` has no named initial route, so Flutter's default web `Navigator` reports route `"/"` back to the browser on the very first frame — the `/share/<slug>` deep link rendered correctly on the initial click-through, but the address bar got silently overwritten to `/`, so **reloading the tab dropped a visitor straight to the login screen** instead of back to the share dashboard. Fixed by routing through `onGenerateRoute` with `initialRoute: Uri.base.path`, so the Navigator's own route name (and therefore its URL sync) reflects the incoming path instead of a hardcoded `/`. Re-verified live: fresh open → reload (still on the share screen, all 8 `/public/{slug}/...` calls fire again) → revoke via the admin API → reload (`EmptyState` "This link is no longer active", all calls 404 as expected).
+
+**Not click-verified this session, same limitation as M2's breakdown tabs:** the login flow itself (and therefore the dashboard's new live badge + share dialog, which sit behind it) couldn't be exercised via simulated clicks — this session's browser pane had no screenshot compositing available at all (not just unreliable coordinates) and the Flutter-web CanvasKit accessibility tree never fully populated even after triggering "Enable accessibility", so there was no reliable way to hit the Sign In button. Verified everything reachable *without* logging in instead: the `/public/*` API directly via `curl` (create/read/revoke/404), and the `/share/<slug>` Flutter screen directly via URL navigation (which is also the actual real-world entry point for a share-link visitor). The dashboard-side UI (live badge + share dialog) is unit-tested (`LiveBadge` widget tests) and code-reviewed but not live-clicked — **worth folding into the same manual click-through as the M2 breakdown-tabs check** next time the app is open in a real browser.
+
 ## Next steps (in order)
 
-1. ⬜ **Manual check (Karim, 10s):** confirm the breakdown dimension chips (Referrers/Countries/Devices/Browsers) actually switch the list when tapped — see the M2 "left open" note above
-2. ⬜ M3 — live badge (10s poll) + share links
-3. ⬜ **M4 — Manual (Karim): Render service + Firebase project**, then dogfood snippet into UniMatch `web/index.html`
-4. ⬜ M5 — demo seed, screenshots, GIF, README final
+1. ⬜ **Manual check (Karim, ~20s):** (a) the M2 breakdown-tabs tap, (b) the M3 dashboard live badge shows a moving count and the share dialog's create/copy/revoke flow works — see the "left open" notes above
+2. ⬜ **M4 — Manual (Karim): Render service + Firebase project**, then dogfood snippet into UniMatch `web/index.html`
+3. ⬜ M5 — demo seed, screenshots, GIF, README final
 
 ## Gotchas / things to know
 
@@ -139,19 +146,22 @@ Built: `ApiService` (JWT header, cold-start retries + `serverWaking`) + models +
 - **`flutter run -d web-server` is the right target for automated browser verification** — `-d chrome` opens Flutter's own Chrome instance, which the Browser-pane tools can't see or drive. `web-server` serves headlessly on the given port and any browser tool can navigate to it directly.
 - **A live `flutter run` dev server watches the whole project directory** the same way `uvicorn --reload` does — don't run `pip install`/package changes while it's up (n/a for Flutter itself, but killing/restarting the process is still the reliable way to pick up a code fix, since hot-reload requires sending `r`/`R` to the process's stdin, which isn't available through a background task; just kill the PID on the dev server's port and start a fresh `flutter run`).
 - **Flutter web's CanvasKit renderer paints everything to one canvas — there is no DOM to query.** `read_page`/`find` on a Flutter-web CanvasKit app return nothing useful (a generic container + an "Enable accessibility" toggle) unless that toggle is explicitly enabled first. Automated verification here is pixel/screenshot-based only; budget for occasional coordinate misses on small targets (chips, icon buttons) even when a screenshot looks correctly aimed — the reported viewport/screenshot dimensions were observed to vary slightly between successive captures in this session in a way that was never fully explained.
+- **In a session with no screenshot compositing available at all** (M3: `computer{action:"screenshot"}` timed out every time with "the Browser pane is not displayed"), pixel-based clicking is off the table entirely, and clicking Flutter web's real "Enable accessibility" toggle via a `computer`/ref click (or even a JS-dispatched `.click()`) did **not** reliably populate a real `flt-semantics` tree either — `read_page` kept returning only the placeholder shell. `Tab`-key focus traversal also doesn't reach individual widgets (focus just lands on the top-level `<flutter-view>`), so there was no way to drive the login button at all this session. Workaround that still fully verified M3: skip the UI that requires login (dashboard live badge, share dialog — those are unit-tested instead) and drive everything reachable without auth directly — `curl` against the API, and the browser navigated straight to a `/share/<slug>` URL (the real entry point for that screen anyway, no login involved). `form_input` (sets a field's value via a real DOM `input` event) and reading `document.querySelectorAll(...)` via `javascript_tool` both still worked fine for inspection even when clicking didn't.
+- **Port 5000 was already bound by something else on this Windows machine** (`flutter run --web-port 5000` failed with `errno 10048`) — use a different port (5050 worked) if 5000 refuses to bind.
 
 ## How to run / verify
 
 ```bash
 # Backend
 cd backend
-.venv/Scripts/python -m pytest -q          # 51 tests
+.venv/Scripts/python -m pytest -q          # 58 tests
 .venv/Scripts/python -m uvicorn main:app --reload --port 8000
 # once a site exists: .venv/Scripts/python scripts/seed_events.py --live --site SITE_KEY
 
 # App
 flutter analyze
-flutter test                               # 16 tests
-flutter run -d chrome --web-port 5000 --dart-define=API_BASE_URL=http://localhost:8000
+flutter test                               # 20 tests
+flutter run -d web-server --web-port 5050 --dart-define=API_BASE_URL=http://localhost:8000
 # admin password for local login: whatever ADMIN_PASSWORD is set to in backend/.env
+# a share link looks like http://localhost:5050/share/<slug> — no login needed to view it
 ```

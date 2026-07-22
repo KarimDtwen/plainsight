@@ -13,7 +13,7 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
 from config import Settings  # noqa: E402
-from routers import admin, auth, collect, health, sites, snippet, stats  # noqa: E402
+from routers import admin, auth, collect, health, public, sites, snippet, stats  # noqa: E402
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -38,6 +38,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(sites.router)
     app.include_router(stats.router)
+    app.include_router(public.router)
     app.include_router(admin.router)
     return app
 

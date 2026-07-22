@@ -47,3 +47,15 @@ def delete_site(request: Request, site_id: str):
     # No return annotation: FastAPI 0.115 turns `-> None` into a response
     # model, which asserts against 204's no-body rule at route registration.
     db_sites.delete_site(request.app.state.settings, site_id)
+
+
+@router.post("/sites/{site_id}/share-slug")
+def create_share_slug(request: Request, site_id: str) -> dict:
+    """(Re)generates the site's public share link, revoking any previous one."""
+    slug = db_sites.set_share_slug(request.app.state.settings, site_id)
+    return {"share_slug": slug}
+
+
+@router.delete("/sites/{site_id}/share-slug", status_code=204)
+def revoke_share_slug(request: Request, site_id: str):
+    db_sites.clear_share_slug(request.app.state.settings, site_id)

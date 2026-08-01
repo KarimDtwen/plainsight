@@ -23,6 +23,13 @@ GEOIP_DIR = os.path.join(
 URL_TEMPLATE = "https://download.db-ip.com/free/dbip-country-lite-{ym}.mmdb.gz"
 
 
+def _write_status(text: str) -> None:
+    # Read by services/geoip.py so a build-time download failure — otherwise
+    # silent — shows up in /health's geoip_detail instead of just this log.
+    with open(os.path.join(GEOIP_DIR, ".status"), "w") as f:
+        f.write(text + "\n")
+
+
 def main() -> int:
     os.makedirs(GEOIP_DIR, exist_ok=True)
     dest = os.path.join(GEOIP_DIR, "dbip-country-lite.mmdb")
@@ -30,6 +37,7 @@ def main() -> int:
     this_month = date.today().replace(day=1)
     previous_month = (this_month - timedelta(days=1)).replace(day=1)
 
+    errors = []
     for month in (this_month, previous_month):
         url = URL_TEMPLATE.format(ym=month.strftime("%Y-%m"))
         archive = dest + ".gz"
@@ -41,12 +49,18 @@ def main() -> int:
             with gzip.open(archive, "rb") as src, open(dest, "wb") as out:
                 shutil.copyfileobj(src, out)
             os.remove(archive)
-            print(f"[geoip] ok: {dest} ({os.path.getsize(dest) // 1024} KiB)")
+            size_kb = os.path.getsize(dest) // 1024
+            print(f"[geoip] ok: {dest} ({size_kb} KiB)")
+            _write_status(f"ok: {dest} ({size_kb} KiB)")
             return 0
         except Exception as exc:  # noqa: BLE001 — any failure = try fallback
-            print(f"[geoip] {month:%Y-%m} failed: {exc}")
+            msg = f"{month:%Y-%m}: {type(exc).__name__}: {exc}"
+            print(f"[geoip] {msg}")
+            errors.append(msg)
 
-    print("[geoip] WARNING: no database downloaded — countries will be Unknown")
+    detail = "; ".join(errors) or "unknown failure"
+    print(f"[geoip] WARNING: no database downloaded — countries will be Unknown ({detail})")
+    _write_status(f"failed: {detail}")
     return 0  # never break the build
 
 

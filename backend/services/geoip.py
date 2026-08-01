@@ -31,7 +31,12 @@ def _load():
     try:
         paths = sorted(glob.glob(os.path.join(GEOIP_DIR, "*.mmdb")))
         if not paths:
-            _load_detail = f"no *.mmdb file in {GEOIP_DIR}"
+            status_path = os.path.join(GEOIP_DIR, ".status")
+            if os.path.exists(status_path):
+                with open(status_path) as f:
+                    _load_detail = f"no mmdb; build status: {f.read().strip()}"
+            else:
+                _load_detail = f"no *.mmdb file in {GEOIP_DIR} (no build status recorded)"
         else:
             _reader = maxminddb.open_database(paths[-1])
             _load_detail = f"loaded {paths[-1]}"

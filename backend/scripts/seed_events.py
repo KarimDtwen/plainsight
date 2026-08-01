@@ -113,10 +113,17 @@ def run_live(target: str, site_key: str, minutes: float, rate_per_sec: float) ->
 
 
 def run_backfill(site_key: str, days: int) -> None:
+    from dotenv import load_dotenv
+
     from config import Settings
     from db import client as db_client
     from services import hashing, ua as ua_service
 
+    # Unlike main.py, nothing else in this standalone script loads .env —
+    # without this, Settings.from_env() silently falls back to the
+    # "YOUR_PROJECT.supabase.co" placeholder and every request fails with a
+    # confusing DNS error instead of a clear "no credentials" one.
+    load_dotenv()
     settings = Settings.from_env()
     sb = db_client.get_client(settings)
 

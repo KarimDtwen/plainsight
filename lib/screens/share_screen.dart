@@ -224,7 +224,10 @@ class _ShareScreenState extends State<ShareScreen> {
                 ],
               ),
               SizedBox(height: t.m),
-              BreakdownList(rows: _breakdowns[_selectedDimension] ?? const []),
+              BreakdownList(
+                rows: _breakdowns[_selectedDimension] ?? const [],
+                dimension: _selectedDimension,
+              ),
             ],
           ),
         ),

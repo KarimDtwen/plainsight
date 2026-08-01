@@ -226,7 +226,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
               SizedBox(height: t.m),
-              BreakdownList(rows: _breakdowns[_selectedDimension] ?? const []),
+              BreakdownList(
+                rows: _breakdowns[_selectedDimension] ?? const [],
+                dimension: _selectedDimension,
+              ),
             ],
           ),
         ),

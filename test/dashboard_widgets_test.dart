@@ -75,6 +75,16 @@ void main() {
       await tester.pumpWidget(wrap(const BreakdownList(rows: [])));
       expect(find.text('No data in this range yet'), findsOneWidget);
     });
+
+    testWidgets('an empty country (no geoip match) renders as "Unknown"',
+        (tester) async {
+      await tester.pumpWidget(wrap(const BreakdownList(
+        dimension: BreakdownDimension.country,
+        rows: [BreakdownRow(value: '', pageviews: 5, visitors: 5)],
+      )));
+      expect(find.text('Unknown'), findsOneWidget);
+      expect(find.text('(direct)'), findsNothing);
+    });
   });
 
   group('LiveBadge', () {

@@ -9,9 +9,19 @@ import '../theme/app_typography.dart';
 /// countries, devices, and browsers. Bar width is proportional to the
 /// top row's pageviews so the busiest item always reads as a full bar.
 class BreakdownList extends StatelessWidget {
-  const BreakdownList({super.key, required this.rows});
+  const BreakdownList({
+    super.key,
+    required this.rows,
+    this.dimension = BreakdownDimension.referrer,
+  });
 
   final List<BreakdownRow> rows;
+
+  /// Which dimension these rows came from — only affects the label shown
+  /// for an empty `value` ("(direct)" for a referrer, "Unknown" for a
+  /// country the geoip database couldn't resolve; every other dimension
+  /// is never actually empty).
+  final BreakdownDimension dimension;
 
   @override
   Widget build(BuildContext context) {
@@ -26,12 +36,15 @@ class BreakdownList extends StatelessWidget {
       );
     }
     final maxPv = rows.map((r) => r.pageviews).reduce((a, b) => a > b ? a : b);
+    final emptyLabel =
+        dimension == BreakdownDimension.country ? 'Unknown' : '(direct)';
     return Column(
       children: [
         for (final row in rows)
           _BreakdownRowTile(
             row: row,
             fraction: maxPv == 0 ? 0 : row.pageviews / maxPv,
+            emptyLabel: emptyLabel,
           ),
       ],
     );
@@ -39,16 +52,21 @@ class BreakdownList extends StatelessWidget {
 }
 
 class _BreakdownRowTile extends StatelessWidget {
-  const _BreakdownRowTile({required this.row, required this.fraction});
+  const _BreakdownRowTile({
+    required this.row,
+    required this.fraction,
+    required this.emptyLabel,
+  });
 
   final BreakdownRow row;
   final double fraction;
+  final String emptyLabel;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
     final cs = context.scheme;
-    final label = row.value.isEmpty ? '(direct)' : row.value;
+    final label = row.value.isEmpty ? emptyLabel : row.value;
     return Padding(
       padding: EdgeInsets.only(bottom: t.s),
       child: Stack(

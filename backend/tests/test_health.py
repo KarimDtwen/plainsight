@@ -7,4 +7,7 @@ def test_app_imports_hermetically(app_module):
 def test_health_endpoint(client):
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    body = response.json()
+    assert body["status"] == "ok"
+    # No geoip database is bundled in the hermetic test env.
+    assert body["geoip"] is False

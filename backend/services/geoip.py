@@ -48,6 +48,12 @@ def country(ip: str) -> str:
         return ""
 
 
+def is_loaded() -> bool:
+    """Whether the mmdb database is present and opened — surfaced on /health
+    since a build-time download failure is otherwise silent."""
+    return _load() is not None
+
+
 def reset_for_tests() -> None:
     global _reader, _load_attempted
     if _reader is not None:

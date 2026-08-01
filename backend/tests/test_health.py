@@ -4,11 +4,18 @@ def test_app_imports_hermetically(app_module):
     assert app_module.app.title == "Plainsight"
 
 
-def test_health_endpoint(client):
+def test_health_endpoint(client, tmp_path, monkeypatch):
+    # Isolated from whatever backend/geoip/ happens to hold on the machine
+    # running the tests (e.g. a real mmdb fetched locally to verify a fix) —
+    # same pattern as test_geoip.py's own GEOIP_DIR monkeypatches.
+    from services import geoip
+
+    monkeypatch.setattr(geoip, "GEOIP_DIR", str(tmp_path))
+    geoip.reset_for_tests()
+
     response = client.get("/health")
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    # No geoip database is bundled in the hermetic test env.
     assert body["geoip"] is False
     assert "no *.mmdb file" in body["geoip_detail"]

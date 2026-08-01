@@ -21,6 +21,10 @@ GEOIP_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "geoip"
 )
 URL_TEMPLATE = "https://download.db-ip.com/free/dbip-country-lite-{ym}.mmdb.gz"
+# DB-IP's server 403s urllib's default "Python-urllib/x.y" User-Agent
+# (confirmed live: Render's build logs showed HTTP 403 for both months,
+# while the identical URL curled fine) — any non-empty, non-default UA works.
+_REQUEST_HEADERS = {"User-Agent": "plainsight-geoip-fetch/1.0"}
 
 
 def _write_status(text: str) -> None:
@@ -43,7 +47,8 @@ def main() -> int:
         archive = dest + ".gz"
         try:
             print(f"[geoip] fetching {url}")
-            with urllib.request.urlopen(url, timeout=60) as resp:
+            request = urllib.request.Request(url, headers=_REQUEST_HEADERS)
+            with urllib.request.urlopen(request, timeout=60) as resp:
                 with open(archive, "wb") as out:
                     shutil.copyfileobj(resp, out)
             with gzip.open(archive, "rb") as src, open(dest, "wb") as out:

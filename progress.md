@@ -4,7 +4,7 @@ _Last updated: 2026-08-01_
 
 ## TL;DR
 
-Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippet + FastAPI ingestion + Flutter-web dashboard. **M0–M4 are all done.** Backend live on Render (`https://plainsight-backend.onrender.com`), dashboard live on Firebase Hosting (`https://plainsight-ed30c.web.app`), the signature demo hook is live too — the snippet is installed on the real UniMatch site (`https://unimatch-a095f.web.app`) and a real visit shows up in the Plainsight dashboard within seconds. Full smoke test green end to end against the real Supabase project (login, site CRUD, `/collect`, live counter, share links, Country breakdown). Next up: M5 (polish — demo data, README, screenshots).
+Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippet + FastAPI ingestion + Flutter-web dashboard. **The whole project is done — M0 through M5.** Backend live on Render (`https://plainsight-backend.onrender.com`), dashboard live on Firebase Hosting (`https://plainsight-ed30c.web.app`), the signature demo hook is live — the snippet is installed on the real UniMatch site and a real visit shows up in the Plainsight dashboard within seconds. A dedicated demo site carries 30 days of realistic seeded traffic, viewable with no login via a public share link. README finalized (privacy writeup, DB-IP attribution, live links, status). What's left is entirely optional polish: real screenshots/a demo GIF, which this session's browser tooling couldn't capture (see M5 section).
 
 - Repo: https://github.com/KarimDtwen/plainsight · local `C:\flutter\projects\plainsight`
 - Design system + glass kit ported from UniMatch v3 (`lib/theme/`, `lib/ui/`) + new `chartSeries` token
@@ -32,14 +32,14 @@ Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippe
 | 2 | Dashboard + charts | ✅ `1891863` (+4 prior) — live E2E verified (one item open, see below) |
 | 3 | Live counter + share links | ✅ `6067d5c` (+2 prior) — live E2E verified |
 | 4 | Deploy + dogfood on UniMatch | ✅ `cc55312` + UniMatch `3841134` — live E2E verified, real traffic confirmed |
-| 5 | Polish (demo data, README, GIF) | ⬜ |
+| 5 | Polish (demo data, README, GIF) | ✅ `324f4cb`, `5f2fcba` — screenshots/GIF pending a manual capture, everything else done |
 
 ## Current state
 
-- `main` @ `cc55312`, working tree clean (progress.md commit pending)
+- `main` @ `5f2fcba`, working tree clean (progress.md commit pending)
 - `flutter analyze` clean · 21 Flutter tests · 58 backend tests
-- Full app surface live in production: login, sites + snippet modal, dashboard (tiles/chart/breakdown/live badge/share), the no-auth `/share/<slug>` mirror, and now real traffic from the live UniMatch app. Backend serves `/health`, `/js/script.js`, `/collect`, `/auth/login`, `/sites` (+ `/share-slug`), `/sites/{id}/stats/*`, `/public/{slug}/...`, `/admin/rollup`
-- Only M5 (polish) is left
+- **Project complete.** Full app surface live in production: login, sites + snippet modal, dashboard (tiles/chart/breakdown/live badge/share), the no-auth `/share/<slug>` mirror, real traffic from the live UniMatch app, and a seeded 30-day demo site viewable via a public share link with no login. Backend serves `/health`, `/js/script.js`, `/collect`, `/auth/login`, `/sites` (+ `/share-slug`), `/sites/{id}/stats/*`, `/public/{slug}/...`, `/admin/rollup`
+- Only genuinely optional work remains: real screenshots/a demo GIF for the README (2-minute manual capture — this session's browser tooling couldn't render/composite a page at all), and the two still-open manual UI click-throughs noted below
 
 ## 🏗️ M0 — Scaffold, CI, docs, skills (2026-07-21) — done
 
@@ -140,10 +140,20 @@ Registered `unimatch-a095f.web.app` as a Plainsight site (`site_key 6837308df7a4
 
 **Housekeeping note, not a bug:** editing `web/index.html` triggered this harness's own "file is now visible in the Browser pane" auto-preview, which loaded the edited file locally (`file://...`) and — because the snippet was already in the file at that point — fired one real `/collect` beacon with a nonsense path (the local filesystem path) and a geoip-resolved country from whatever IP that local load egressed through. Harmless (Plainsight has no per-event deletion endpoint and one odd early pageview doesn't matter for a portfolio demo), but worth knowing: **any file with a live analytics/tracking snippet in it may get "visited" by editor tooling the moment it's saved**, not just by a real browser. Also cleaned up an actually-orphaned test site (`Geoip Verify`, from the M4 debugging above) that a prior cleanup step missed — always re-list sites after a cleanup pass to confirm, don't trust a single 204 in isolation.
 
-## Next steps (in order)
+## 🎉 M5 — Polish (2026-08-01) — done, project complete
+
+**PS-050 — demo data:** registered a dedicated "Plainsight Demo" site (never the real UniMatch row — the seed script hard-refuses that) and ran `seed_events.py --backfill --days 30`. **Found and fixed a real, previously-latent bug**: backfill mode never called `load_dotenv()` — only `main.py` does that, and this standalone script imports `config`/`db` directly without going through `main`. `Settings.from_env()` silently fell back to the `YOUR_PROJECT.supabase.co` placeholder, and every request failed with a confusing `httpx.ConnectError: getaddrinfo failed` that gave no hint credentials were the issue (traced by proving `socket.gethostbyname`, raw `urllib`, and raw `httpx.get()` all worked fine against the real Supabase host — only the actual `supabase-py` client, constructed from `Settings.from_env()`, failed, and printing its resolved URL showed the placeholder). `--live` mode never hit this since it only POSTs over HTTP and never touches `Settings` at all; as far as this project's history shows, `--backfill` had apparently never actually been run before. Fixed with one `load_dotenv()` call; backfill then completed cleanly — 30 days, ~150-220 events/day with a realistic weekday/weekend curve, **4,623 pageviews / 1,625 visitors** total. Created a share link for it (public, no login): the top-of-README demo link.
+
+**PS-051 — README final:** live dashboard/backend/demo-link URLs up top, Status table all green, a real **Privacy design** section (was one throwaway bullet) covering the daily-rotating hash, salt destruction, 90-day raw-event purge, DNT, and country-only geoip — plus the **DB-IP CC BY 4.0 attribution the license actually requires**, which had been entirely missing since M0. Screenshots/demo GIF are a TODO comment with exact steps, not filled in: this session's browser tooling (both `Claude_Browser` and `claude-in-chrome`) reported a genuine 0×0 viewport / "pane not displayed" on every attempt — a real environment constraint, not a flaky retry situation — so no visual capture was possible. Confirmed with Karim before proceeding rather than guessing; he'll grab them (2-3 minutes) next time a browser is actually open on his end.
+
+**PS-052 — this close-out.** Notion roadmap and this file both fully updated; memory refreshed for future sessions.
+
+**What's left, entirely optional:** real dashboard/breakdown screenshots + a demo GIF of the share-link flow (README has exact steps queued as a comment); the M2/M3 manual click-through noted below (live badge visibly ticking, share dialog create/copy/revoke) — every one of those code paths is either unit-tested or already live-verified through a non-click path, so this is confidence-building, not a suspected bug.
+
+## Next steps (optional — the project is functionally complete)
 
 1. ⬜ **Manual check (Karim, ~10s):** the dashboard's live badge + share dialog (create/copy/revoke) — the only UI left unverified by click, since this session's browser tooling could drive clicks but the login step wasn't tested that way (verified instead via `/public/*` + direct `/share/<slug>` navigation, which is the actual real-world share-link path)
-2. ⬜ M5 — demo seed, screenshots, GIF, README final, DEPLOYMENT.md's cold-start banner note
+2. ⬜ **Manual capture (Karim, ~2-3 min):** dashboard + breakdown screenshots and a demo-GIF of the share-link flow — see the TODO comment in [README.md](README.md)'s Screenshots section for exact steps
 
 ## Gotchas / things to know
 
@@ -176,6 +186,9 @@ Registered `unimatch-a095f.web.app` as a Plainsight site (`site_key 6837308df7a4
 - **DB-IP's download server (`download.db-ip.com`) returns `HTTP 403 Forbidden` for Python's default `urllib` User-Agent** (`Python-urllib/3.12`) specifically, while the identical URL works fine from `curl` or any browser-like UA. This is why `fetch_geoip.py`'s download silently failed in production even though the URLs themselves were reachable — confirmed by curling the same URL locally with `-A "Python-urllib/3.12"` (403) vs `-A "Mozilla/5.0"` (200). Any `urllib.request` call to a third-party download host should probably send an explicit `User-Agent` by default, not just this one.
 - **`javascript_tool`/Chrome JS exec keeps page-global state across calls in the same tab** — a `const`/`let` declared in one call is still in scope for the next, so reusing a variable name throws `Identifier '...' has already been declared`. Use a fresh name or `var` (redeclare-safe) if re-running similar inspection snippets.
 - **A test can be accidentally non-hermetic by relying on the ambient local filesystem instead of isolating it** — `test_health_endpoint` implicitly assumed `backend/geoip/*.mmdb` would never exist locally, instead of monkeypatching `GEOIP_DIR` to an empty `tmp_path` the way `test_geoip.py`'s own tests already did. It passed for the project's entire history purely because no one had run `fetch_geoip.py` locally before — worth a rule of thumb: **any test whose assertion depends on "this file doesn't exist" should force that state via monkeypatch, never assume it.**
+- **(M5) `seed_events.py --backfill` was a completely dormant, broken code path until this session** — it never called `load_dotenv()`, so `Settings.from_env()` silently fell back to the placeholder Supabase URL and every request failed with a confusing `httpx.ConnectError: getaddrinfo failed` instead of a clear "no credentials" error. Diagnosed by proving `socket.gethostbyname`, raw `urllib`, and raw `httpx.get()` all worked fine against the real host, then printing the actual client's resolved URL — it was `your_project.supabase.co`, the placeholder. **General lesson: any standalone script that imports `config`/`Settings` directly (not via `main.py`) needs its own `load_dotenv()` call** — don't assume env loading happens somewhere upstream.
+- **(M5) This session's browser tooling reported a genuine 0×0 viewport on every tab, in both `Claude_Browser` and `claude-in-chrome`** — not a flaky retry situation, a structural "no display compositing available" constraint (confirmed via `window.innerWidth/innerHeight` both `0`, and `claude-in-chrome`'s own `screenshot` action throwing an internal CDP `params.clip.scale` bindings error on every call). Clicking, navigating, and JS execution all still worked fine — only visual capture (`screenshot`/`zoom`) was unavailable. When this happens: don't keep retrying, ask the user how they want to handle the visual-only gap (this session: finish everything else, leave a clearly-marked TODO with exact manual steps, let the user capture visuals later).
+- **This session's network had several transient blips** (curl `000`, a `getaddrinfo failed` from `httpx` that then worked seconds later, a Chrome tab landing on `chrome-error://chromewebdata/` on a URL that curled fine moments before) — not once tied to a real bug, always resolved on retry within a few seconds. Worth distinguishing from a genuine failure (like the backfill `load_dotenv()` bug above, which failed identically 4/4 times and had a root cause) — a single flaky network error doesn't need root-causing, but a *consistently reproducible* one does.
 
 ## How to run / verify
 

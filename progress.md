@@ -4,7 +4,7 @@ _Last updated: 2026-08-01_
 
 ## TL;DR
 
-Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippet + FastAPI ingestion + Flutter-web dashboard. **M0–M4's deploy step are done and live in production**: backend on Render (`https://plainsight-backend.onrender.com`), dashboard on Firebase Hosting (`https://plainsight-ed30c.web.app`), both smoke-tested end to end against the real Supabase project — login, site CRUD, `/collect`, live counter, share links (create/view/reload/revoke), and now-working Country breakdown all confirmed with real data, then cleaned up. Left in M4: PS-042, installing the snippet on the live UniMatch site (the signature demo hook — real traffic instead of seeded data). Next up after that: M5 (polish).
+Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippet + FastAPI ingestion + Flutter-web dashboard. **M0–M4 are all done.** Backend live on Render (`https://plainsight-backend.onrender.com`), dashboard live on Firebase Hosting (`https://plainsight-ed30c.web.app`), the signature demo hook is live too — the snippet is installed on the real UniMatch site (`https://unimatch-a095f.web.app`) and a real visit shows up in the Plainsight dashboard within seconds. Full smoke test green end to end against the real Supabase project (login, site CRUD, `/collect`, live counter, share links, Country breakdown). Next up: M5 (polish — demo data, README, screenshots).
 
 - Repo: https://github.com/KarimDtwen/plainsight · local `C:\flutter\projects\plainsight`
 - Design system + glass kit ported from UniMatch v3 (`lib/theme/`, `lib/ui/`) + new `chartSeries` token
@@ -31,15 +31,15 @@ Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippe
 | 1 | Ingestion + snippet + stats API | ✅ `6930ed6` — live E2E verified against real Supabase |
 | 2 | Dashboard + charts | ✅ `1891863` (+4 prior) — live E2E verified (one item open, see below) |
 | 3 | Live counter + share links | ✅ `6067d5c` (+2 prior) — live E2E verified |
-| 4 | Deploy + dogfood on UniMatch | 🔶 Deploy done (`cc55312`) — dogfood (PS-042) still open |
+| 4 | Deploy + dogfood on UniMatch | ✅ `cc55312` + UniMatch `3841134` — live E2E verified, real traffic confirmed |
 | 5 | Polish (demo data, README, GIF) | ⬜ |
 
 ## Current state
 
 - `main` @ `cc55312`, working tree clean (progress.md commit pending)
 - `flutter analyze` clean · 21 Flutter tests · 58 backend tests
-- Full app surface built through M3, **now live in production**: login, sites + snippet modal, dashboard (tiles/chart/breakdown/live badge/share), and the no-auth `/share/<slug>` mirror. Backend serves `/health`, `/js/script.js`, `/collect`, `/auth/login`, `/sites` (+ `/share-slug`), `/sites/{id}/stats/*`, `/public/{slug}/...`, `/admin/rollup`
-- Left before M5: PS-042 (install the snippet on UniMatch, the actual dogfood step) + DEPLOYMENT.md's final pass
+- Full app surface live in production: login, sites + snippet modal, dashboard (tiles/chart/breakdown/live badge/share), the no-auth `/share/<slug>` mirror, and now real traffic from the live UniMatch app. Backend serves `/health`, `/js/script.js`, `/collect`, `/auth/login`, `/sites` (+ `/share-slug`), `/sites/{id}/stats/*`, `/public/{slug}/...`, `/admin/rollup`
+- Only M5 (polish) is left
 
 ## 🏗️ M0 — Scaffold, CI, docs, skills (2026-07-21) — done
 
@@ -132,11 +132,18 @@ Karim created the Render account/project and the Firebase project (`plainsight-e
 
 **M2's "left open" item is resolved, found as a side effect of this session's live testing:** with a working click-driven browser (unlike the earlier session), tapping a breakdown-dimension chip on the live production dashboard was directly observed switching the list (Top pages → Countries, tab highlighted, content changed). The code was correct all along.
 
+### PS-042 — Dogfood on UniMatch (2026-08-01) — done
+
+Registered `unimatch-a095f.web.app` as a Plainsight site (`site_key 6837308df7a4d104`), added the one-line install snippet to `web/index.html` in the **UniMatch repo** (commit `3841134`), rebuilt (`flutter build web --release --dart-define=API_BASE_URL=https://plainsight-backend.onrender.com`), and redeployed to Firebase Hosting — same `unimatch-a095f` project UniMatch already uses.
+
+**Verified live:** a real browser visit to `https://unimatch-a095f.web.app/` shows up in the Plainsight dashboard's live counter and `/` breakdown within seconds — the signature demo hook (real traffic, not seeded data) now actually works.
+
+**Housekeeping note, not a bug:** editing `web/index.html` triggered this harness's own "file is now visible in the Browser pane" auto-preview, which loaded the edited file locally (`file://...`) and — because the snippet was already in the file at that point — fired one real `/collect` beacon with a nonsense path (the local filesystem path) and a geoip-resolved country from whatever IP that local load egressed through. Harmless (Plainsight has no per-event deletion endpoint and one odd early pageview doesn't matter for a portfolio demo), but worth knowing: **any file with a live analytics/tracking snippet in it may get "visited" by editor tooling the moment it's saved**, not just by a real browser. Also cleaned up an actually-orphaned test site (`Geoip Verify`, from the M4 debugging above) that a prior cleanup step missed — always re-list sites after a cleanup pass to confirm, don't trust a single 204 in isolation.
+
 ## Next steps (in order)
 
-1. ⬜ **PS-042 — dogfood on UniMatch (assisted):** register `unimatch-a095f.web.app` as a Plainsight site, add the install snippet to UniMatch's `web/index.html`, rebuild + `firebase deploy` **in the UniMatch repo**, verify real pageviews arrive
-2. ⬜ **Manual check (Karim, ~10s):** the dashboard's live badge + share dialog (create/copy/revoke) — the only UI left unverified by click, since this session's browser tooling could drive clicks but the login step wasn't tested that way (verified instead via `/public/*` + direct `/share/<slug>` navigation, which is the actual real-world share-link path)
-3. ⬜ M5 — demo seed, screenshots, GIF, README final, DEPLOYMENT.md's cold-start banner note
+1. ⬜ **Manual check (Karim, ~10s):** the dashboard's live badge + share dialog (create/copy/revoke) — the only UI left unverified by click, since this session's browser tooling could drive clicks but the login step wasn't tested that way (verified instead via `/public/*` + direct `/share/<slug>` navigation, which is the actual real-world share-link path)
+2. ⬜ M5 — demo seed, screenshots, GIF, README final, DEPLOYMENT.md's cold-start banner note
 
 ## Gotchas / things to know
 

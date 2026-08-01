@@ -30,16 +30,18 @@ flutter build web --dart-define=API_BASE_URL=https://plainsight-backend.onrender
 firebase deploy --only hosting
 ```
 
-## 4. Deploy + smoke test — PS-040/043
+## 4. Deploy + smoke test — PS-040/043 — done (2026-08-01)
 
-1. `/health` → 200
-2. `/js/script.js` → 200 with `Access-Control-Allow-Origin: *` and 24 h `Cache-Control`
-3. Dashboard login with `ADMIN_PASSWORD`
-4. One `/collect` round-trip appears in today's timeseries
-5. Share link renders read-only without auth
+1. ✅ `/health` → 200 (`{"status":"ok","geoip":true,...}`)
+2. ✅ `/js/script.js` → 200 with `Access-Control-Allow-Origin: *` and 24 h `Cache-Control`
+3. ✅ Dashboard login with `ADMIN_PASSWORD` — verified via a real curl round trip (Karim pasted the live password in chat for this one check)
+4. ✅ One `/collect` round-trip appears in today's timeseries
+5. ✅ Share link renders read-only without auth
+
+Live: dashboard at https://plainsight-ed30c.web.app, backend at https://plainsight-backend.onrender.com.
 
 > Cold starts: the free Render instance sleeps after ~15 min idle; the first request takes 30–60 s. The dashboard's server-waking banner covers this — it is expected behavior, not an outage.
 
-## 5. Dogfood on UniMatch — PS-042
+## 5. Dogfood on UniMatch — PS-042 — done (2026-08-01)
 
-Register `unimatch-a095f.web.app` as a site, add the snippet line to UniMatch's `web/index.html`, rebuild and `firebase deploy` **in the UniMatch repo**, then verify real pageviews arrive in the Plainsight dashboard.
+Registered `unimatch-a095f.web.app` as a site, added the snippet line to UniMatch's `web/index.html`, rebuilt and `firebase deploy`ed **in the UniMatch repo**. Verified: a real visit to the live UniMatch site shows up in the Plainsight dashboard within seconds.

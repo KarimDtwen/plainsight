@@ -13,4 +13,4 @@ def health() -> dict:
     download failure is otherwise silent (see fetch_geoip.py) and nothing
     else in production surfaces it.
     """
-    return {"status": "ok", "geoip": geoip.is_loaded()}
+    return {"status": "ok", "geoip": geoip.is_loaded(), "geoip_detail": geoip.load_detail()}

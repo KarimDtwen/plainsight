@@ -11,3 +11,4 @@ def test_health_endpoint(client):
     assert body["status"] == "ok"
     # No geoip database is bundled in the hermetic test env.
     assert body["geoip"] is False
+    assert "no *.mmdb file" in body["geoip_detail"]

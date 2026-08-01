@@ -20,19 +20,24 @@ GEOIP_DIR = os.path.join(
 
 _reader = None
 _load_attempted = False
+_load_detail = "not attempted yet"
 
 
 def _load():
-    global _reader, _load_attempted
+    global _reader, _load_attempted, _load_detail
     if _load_attempted:
         return _reader
     _load_attempted = True
     try:
         paths = sorted(glob.glob(os.path.join(GEOIP_DIR, "*.mmdb")))
-        if paths:
+        if not paths:
+            _load_detail = f"no *.mmdb file in {GEOIP_DIR}"
+        else:
             _reader = maxminddb.open_database(paths[-1])
-    except Exception:
+            _load_detail = f"loaded {paths[-1]}"
+    except Exception as exc:  # noqa: BLE001 — surfaced via is_loaded_detail()
         _reader = None
+        _load_detail = f"{type(exc).__name__}: {exc}"
     return _reader
 
 
@@ -54,8 +59,14 @@ def is_loaded() -> bool:
     return _load() is not None
 
 
+def load_detail() -> str:
+    """One-line diagnostic: which file loaded, or why nothing did."""
+    _load()
+    return _load_detail
+
+
 def reset_for_tests() -> None:
-    global _reader, _load_attempted
+    global _reader, _load_attempted, _load_detail
     if _reader is not None:
         try:
             _reader.close()
@@ -63,3 +74,4 @@ def reset_for_tests() -> None:
             pass
     _reader = None
     _load_attempted = False
+    _load_detail = "not attempted yet"

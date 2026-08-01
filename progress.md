@@ -1,10 +1,10 @@
 # Plainsight — Progress & Handoff
 
-_Last updated: 2026-07-22_
+_Last updated: 2026-08-01_
 
 ## TL;DR
 
-Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippet + FastAPI ingestion + Flutter-web dashboard. **M0–M3 are done and verified live** against the real Supabase project: login, site CRUD + snippet modal, the dashboard (summary tiles, `fl_chart` timeseries, breakdown list), a 10s-polling live badge, and no-auth `/share/<slug>` links (create/view/reload/revoke) all confirmed working end to end with real ingested data. Signature demo hook: in M4 the snippet goes on the live UniMatch web app so the dashboard shows real traffic. Next up: M4 (deploy + dogfood on UniMatch, assisted).
+Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippet + FastAPI ingestion + Flutter-web dashboard. **M0–M4's deploy step are done and live in production**: backend on Render (`https://plainsight-backend.onrender.com`), dashboard on Firebase Hosting (`https://plainsight-ed30c.web.app`), both smoke-tested end to end against the real Supabase project — login, site CRUD, `/collect`, live counter, share links (create/view/reload/revoke), and now-working Country breakdown all confirmed with real data, then cleaned up. Left in M4: PS-042, installing the snippet on the live UniMatch site (the signature demo hook — real traffic instead of seeded data). Next up after that: M5 (polish).
 
 - Repo: https://github.com/KarimDtwen/plainsight · local `C:\flutter\projects\plainsight`
 - Design system + glass kit ported from UniMatch v3 (`lib/theme/`, `lib/ui/`) + new `chartSeries` token
@@ -18,8 +18,9 @@ Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippe
 - Flutter pinned 3.38.7 (matches local + CI) · Python 3.12.8 (`backend/runtime.txt`)
 - Backend venv: `backend/.venv` (git-ignored) — `.venv/Scripts/python -m pytest -q`
 - Supabase project: **live** (`kwofqdccqejkxtvqjmue`, free tier), all 6 migrations applied and verified — 4 tables, 8 functions, `pg_cron` job active
-- Render service / Firebase project: **not created yet** (M4, assisted)
-- Secrets: `backend/.env` has real dev-local Supabase creds (git-ignored). **A prior service-role key was briefly leaked via `backend/.env.example` (see incident writeup below) — rotated, dead, and the file is fixed.** Current key is a new-style `sb_secret_...` key. Prod values will live in the Render dashboard only, set separately at deploy time.
+- Render service: **live** — `plainsight-backend`, free plan, `https://plainsight-backend.onrender.com`, Blueprint-managed from `render.yaml`, auto-deploys on push to `main`
+- Firebase project: **live** — `plainsight-ed30c` (Spark/free plan), Hosting only (no other Firebase products used), `https://plainsight-ed30c.web.app`
+- Secrets: `backend/.env` has real dev-local Supabase creds (git-ignored). **A prior service-role key was briefly leaked via `backend/.env.example` (see incident writeup below) — rotated, dead, and the file is fixed.** Current key is a new-style `sb_secret_...` key. Prod secrets (`SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_PASSWORD`, `JWT_SECRET`) live only in the Render dashboard, entered by Karim directly — never typed into a web form by the assistant, even with a blanket go-ahead (see M4 section below).
 - Work items: `PS-###` · commits: conventional types + PS tag
 
 ## Completed milestones (committed)
@@ -30,15 +31,15 @@ Portfolio SaaS: privacy-first web analytics (mini-Plausible) — ~50-line snippe
 | 1 | Ingestion + snippet + stats API | ✅ `6930ed6` — live E2E verified against real Supabase |
 | 2 | Dashboard + charts | ✅ `1891863` (+4 prior) — live E2E verified (one item open, see below) |
 | 3 | Live counter + share links | ✅ `6067d5c` (+2 prior) — live E2E verified |
-| 4 | Deploy + dogfood on UniMatch | ⬜ |
+| 4 | Deploy + dogfood on UniMatch | 🔶 Deploy done (`cc55312`) — dogfood (PS-042) still open |
 | 5 | Polish (demo data, README, GIF) | ⬜ |
 
 ## Current state
 
-- `main` @ `6067d5c`, working tree clean (progress.md commit pending)
-- `flutter analyze` clean · 20 Flutter tests · 58 backend tests
-- Full app surface built through M3: login, sites + snippet modal, dashboard (tiles/chart/breakdown/live badge/share), and the no-auth `/share/<slug>` mirror. Backend serves `/health`, `/js/script.js`, `/collect`, `/auth/login`, `/sites` (+ `/share-slug`), `/sites/{id}/stats/*`, `/public/{slug}/...`, `/admin/rollup`
-- M4 (Render + Firebase deploy, dogfood snippet on UniMatch) is the only milestone left before polish
+- `main` @ `cc55312`, working tree clean (progress.md commit pending)
+- `flutter analyze` clean · 21 Flutter tests · 58 backend tests
+- Full app surface built through M3, **now live in production**: login, sites + snippet modal, dashboard (tiles/chart/breakdown/live badge/share), and the no-auth `/share/<slug>` mirror. Backend serves `/health`, `/js/script.js`, `/collect`, `/auth/login`, `/sites` (+ `/share-slug`), `/sites/{id}/stats/*`, `/public/{slug}/...`, `/admin/rollup`
+- Left before M5: PS-042 (install the snippet on UniMatch, the actual dogfood step) + DEPLOYMENT.md's final pass
 
 ## 🏗️ M0 — Scaffold, CI, docs, skills (2026-07-21) — done
 
@@ -116,11 +117,26 @@ Built: `POST/DELETE /sites/{id}/share-slug` (random slug via `secrets.token_urls
 
 **Not click-verified this session, same limitation as M2's breakdown tabs:** the login flow itself (and therefore the dashboard's new live badge + share dialog, which sit behind it) couldn't be exercised via simulated clicks — this session's browser pane had no screenshot compositing available at all (not just unreliable coordinates) and the Flutter-web CanvasKit accessibility tree never fully populated even after triggering "Enable accessibility", so there was no reliable way to hit the Sign In button. Verified everything reachable *without* logging in instead: the `/public/*` API directly via `curl` (create/read/revoke/404), and the `/share/<slug>` Flutter screen directly via URL navigation (which is also the actual real-world entry point for a share-link visitor). The dashboard-side UI (live badge + share dialog) is unit-tested (`LiveBadge` widget tests) and code-reviewed but not live-clicked — **worth folding into the same manual click-through as the M2 breakdown-tabs check** next time the app is open in a real browser.
 
+## 🚀 M4 — Deploy (2026-08-01) — deploy done, dogfood (PS-042) still open
+
+Karim created the Render account/project and the Firebase project (`plainsight-ed30c`) himself and handed both over. From there:
+
+- **Render (PS-040):** New Blueprint from `render.yaml`, connected to the already-authorized `KarimDtwen/plainsight` GitHub repo — Render auto-detected the 5 `sync: false` secrets and created `plainsight-backend`. Filled `SUPABASE_URL` and `ALLOWED_ORIGINS` myself (not secrets — `SUPABASE_URL` isn't `repr=False` in `Settings`, same signal the codebase already used). **Left `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_PASSWORD`, `JWT_SECRET` for Karim to paste himself** — entering passwords/API keys/tokens into a web form is a hard no regardless of a blanket "do whatever you want," so I said so and asked him to fill those three fields directly in the Render dashboard.
+- **Firebase (PS-041):** `.firebaserc` pinned to `plainsight-ed30c`; `firebase login` needs a real TTY this harness's Bash/PowerShell tools can't provide (`Cannot run login in non-interactive mode` — tried plain `login`, `login:ci`, both shells), but the CLI turned out to already be authenticated to the right Google account from the earlier UniMatch deploy, so no login step was actually needed. `flutter build web --dart-define=API_BASE_URL=https://plainsight-backend.onrender.com` + `firebase deploy --only hosting` — live at `https://plainsight-ed30c.web.app`.
+- **Full live smoke test (PS-043), with Karim's help on the one step I can't do myself:** health/snippet/unauth-401s first with no auth needed; then Karim pasted the live `ADMIN_PASSWORD` in chat (a valid instruction source, unlike a web form) for a real login → create-site → `/collect` → stats → share-slug → public-mirror → delete-site round trip against production, all green, ending clean (test site removed).
+
+**Two real, unrelated bugs found via this live deploy — both now fixed and reverified in production:**
+
+1. **`render.yaml`'s `buildCommand` never ran `scripts/fetch_geoip.py`** — it only did `pip install -r requirements.txt`, so the DB-IP database was never present and Country breakdown was silently going to stay empty forever. Fixed by chaining the fetch into `buildCommand`. Caught because a real prod event's Country breakdown showed `(direct)` — which led to a second, smaller bug: `BreakdownList` used one generic empty-value label across every dimension, so an unresolved country showed a referrer-shaped label instead of "Unknown". Fixed by giving `BreakdownList` a `dimension` param.
+2. **The geoip fetch was *still* failing after that fix** — `geoip:false` on `/health` (a new diagnostic field added specifically because Render's free tier has no Shell and no build-log access after the fact, and the failure inside `fetch_geoip.py` is designed to never break the build, i.e. stays silent). Traced through three rounds of `/health` diagnostics (`geoip` → `geoip_detail` reading a file-not-found message → a `.status` breadcrumb `fetch_geoip.py` writes with the *actual* exception) to the real root cause: **DB-IP's server returns `HTTP 403 Forbidden` for `urllib`'s default `Python-urllib/x.y` User-Agent**, confirmed by curling the identical URL locally with that UA (403) vs a normal one (200). Fixed by sending an explicit `User-Agent` header. Verified by actually running the script locally (safe — it's a build-time-only, git-ignored artifact) and confirming `geoip.country('8.8.8.8') == 'US'`, then re-verified live in production: a real prod event now resolves to a real country. This also **surfaced a real test-isolation bug**: `test_health_endpoint` implicitly assumed no real `backend/geoip/*.mmdb` would ever exist locally instead of monkeypatching `GEOIP_DIR` like `test_geoip.py` already does — it broke the moment this debugging left a real database on disk. Fixed to isolate properly. 58 backend tests, 21 Flutter tests, both green.
+
+**M2's "left open" item is resolved, found as a side effect of this session's live testing:** with a working click-driven browser (unlike the earlier session), tapping a breakdown-dimension chip on the live production dashboard was directly observed switching the list (Top pages → Countries, tab highlighted, content changed). The code was correct all along.
+
 ## Next steps (in order)
 
-1. ⬜ **Manual check (Karim, ~20s):** (a) the M2 breakdown-tabs tap, (b) the M3 dashboard live badge shows a moving count and the share dialog's create/copy/revoke flow works — see the "left open" notes above
-2. ⬜ **M4 — Manual (Karim): Render service + Firebase project**, then dogfood snippet into UniMatch `web/index.html`
-3. ⬜ M5 — demo seed, screenshots, GIF, README final
+1. ⬜ **PS-042 — dogfood on UniMatch (assisted):** register `unimatch-a095f.web.app` as a Plainsight site, add the install snippet to UniMatch's `web/index.html`, rebuild + `firebase deploy` **in the UniMatch repo**, verify real pageviews arrive
+2. ⬜ **Manual check (Karim, ~10s):** the dashboard's live badge + share dialog (create/copy/revoke) — the only UI left unverified by click, since this session's browser tooling could drive clicks but the login step wasn't tested that way (verified instead via `/public/*` + direct `/share/<slug>` navigation, which is the actual real-world share-link path)
+3. ⬜ M5 — demo seed, screenshots, GIF, README final, DEPLOYMENT.md's cold-start banner note
 
 ## Gotchas / things to know
 
@@ -148,6 +164,11 @@ Built: `POST/DELETE /sites/{id}/share-slug` (random slug via `secrets.token_urls
 - **Flutter web's CanvasKit renderer paints everything to one canvas — there is no DOM to query.** `read_page`/`find` on a Flutter-web CanvasKit app return nothing useful (a generic container + an "Enable accessibility" toggle) unless that toggle is explicitly enabled first. Automated verification here is pixel/screenshot-based only; budget for occasional coordinate misses on small targets (chips, icon buttons) even when a screenshot looks correctly aimed — the reported viewport/screenshot dimensions were observed to vary slightly between successive captures in this session in a way that was never fully explained.
 - **In a session with no screenshot compositing available at all** (M3: `computer{action:"screenshot"}` timed out every time with "the Browser pane is not displayed"), pixel-based clicking is off the table entirely, and clicking Flutter web's real "Enable accessibility" toggle via a `computer`/ref click (or even a JS-dispatched `.click()`) did **not** reliably populate a real `flt-semantics` tree either — `read_page` kept returning only the placeholder shell. `Tab`-key focus traversal also doesn't reach individual widgets (focus just lands on the top-level `<flutter-view>`), so there was no way to drive the login button at all this session. Workaround that still fully verified M3: skip the UI that requires login (dashboard live badge, share dialog — those are unit-tested instead) and drive everything reachable without auth directly — `curl` against the API, and the browser navigated straight to a `/share/<slug>` URL (the real entry point for that screen anyway, no login involved). `form_input` (sets a field's value via a real DOM `input` event) and reading `document.querySelectorAll(...)` via `javascript_tool` both still worked fine for inspection even when clicking didn't.
 - **Port 5000 was already bound by something else on this Windows machine** (`flutter run --web-port 5000` failed with `errno 10048`) — use a different port (5050 worked) if 5000 refuses to bind.
+- **`firebase login`/`firebase login:ci` refuse to run without a real TTY** (`Cannot run login in non-interactive mode`) — neither this harness's Bash nor PowerShell tool provides one (output is always captured, never a real interactive terminal), even with `--no-localhost`. If the CLI isn't already authenticated (check with `firebase projects:list` first — it may already be logged into the right account from a previous deploy, as it was here), this genuinely needs Karim to run `firebase login` himself in a real terminal window; there's no way around it from an agent session.
+- **Render's free tier has no Shell and no accessible build-log view for a past deploy** — the "Shell" nav item explicitly upsells to a paid Starter plan, and clicking into an "Events" row / "Deploy started" entry never opened a build-log panel this session (tried several click targets). The `Logs` page's search only indexes **runtime** stdout, not build-phase output — searching it for build-only strings (e.g. `geoip`) returns "No matching logs" even when the build did print them. When a build-time script fails silently by design (like `fetch_geoip.py`, which never fails the build on purpose), the only way to actually see why on a free-tier service is to make the *running app* report it — which is why `/health` grew a `geoip`/`geoip_detail` diagnostic field mid-session. Worth remembering as a pattern: **on Render free tier, put failure detail in something the app can serve, not just in build output.**
+- **DB-IP's download server (`download.db-ip.com`) returns `HTTP 403 Forbidden` for Python's default `urllib` User-Agent** (`Python-urllib/3.12`) specifically, while the identical URL works fine from `curl` or any browser-like UA. This is why `fetch_geoip.py`'s download silently failed in production even though the URLs themselves were reachable — confirmed by curling the same URL locally with `-A "Python-urllib/3.12"` (403) vs `-A "Mozilla/5.0"` (200). Any `urllib.request` call to a third-party download host should probably send an explicit `User-Agent` by default, not just this one.
+- **`javascript_tool`/Chrome JS exec keeps page-global state across calls in the same tab** — a `const`/`let` declared in one call is still in scope for the next, so reusing a variable name throws `Identifier '...' has already been declared`. Use a fresh name or `var` (redeclare-safe) if re-running similar inspection snippets.
+- **A test can be accidentally non-hermetic by relying on the ambient local filesystem instead of isolating it** — `test_health_endpoint` implicitly assumed `backend/geoip/*.mmdb` would never exist locally, instead of monkeypatching `GEOIP_DIR` to an empty `tmp_path` the way `test_geoip.py`'s own tests already did. It passed for the project's entire history purely because no one had run `fetch_geoip.py` locally before — worth a rule of thumb: **any test whose assertion depends on "this file doesn't exist" should force that state via monkeypatch, never assume it.**
 
 ## How to run / verify
 
@@ -160,8 +181,16 @@ cd backend
 
 # App
 flutter analyze
-flutter test                               # 20 tests
+flutter test                               # 21 tests
 flutter run -d web-server --web-port 5050 --dart-define=API_BASE_URL=http://localhost:8000
 # admin password for local login: whatever ADMIN_PASSWORD is set to in backend/.env
 # a share link looks like http://localhost:5050/share/<slug> — no login needed to view it
 ```
+
+## Production (live)
+
+- Dashboard: https://plainsight-ed30c.web.app
+- Backend: https://plainsight-backend.onrender.com (free tier — cold starts after ~15 min idle, first request 30-60s, the dashboard's banner covers this)
+- Redeploy backend: `git push` to `main` (Blueprint `autoDeploy: true`)
+- Redeploy dashboard: `flutter build web --release --dart-define=API_BASE_URL=https://plainsight-backend.onrender.com && firebase deploy --only hosting` from the repo root
+- `curl https://plainsight-backend.onrender.com/health` → `{"status":"ok","geoip":true,"geoip_detail":"loaded ...dbip-country-lite.mmdb"}` when healthy

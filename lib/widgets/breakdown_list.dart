@@ -45,9 +45,37 @@ class BreakdownList extends StatelessWidget {
             row: row,
             fraction: maxPv == 0 ? 0 : row.pageviews / maxPv,
             emptyLabel: emptyLabel,
+            icon: _iconFor(dimension, row.value),
           ),
       ],
     );
+  }
+
+  /// A small leading glyph per row — mostly to give each row visual weight
+  /// (the fraction bar alone leaves a lot of empty space for low-share
+  /// rows), but device/browser icons are also genuinely informative.
+  static IconData _iconFor(BreakdownDimension dimension, String value) {
+    switch (dimension) {
+      case BreakdownDimension.page:
+        return Icons.description_outlined;
+      case BreakdownDimension.referrer:
+        return Icons.link_rounded;
+      case BreakdownDimension.country:
+        return Icons.public_rounded;
+      case BreakdownDimension.browser:
+        return Icons.language_rounded;
+      case BreakdownDimension.device:
+        switch (value) {
+          case 'mobile':
+            return Icons.smartphone_rounded;
+          case 'tablet':
+            return Icons.tablet_mac_rounded;
+          case 'desktop':
+            return Icons.computer_rounded;
+          default:
+            return Icons.devices_other_rounded;
+        }
+    }
   }
 }
 
@@ -56,11 +84,13 @@ class _BreakdownRowTile extends StatelessWidget {
     required this.row,
     required this.fraction,
     required this.emptyLabel,
+    required this.icon,
   });
 
   final BreakdownRow row;
   final double fraction;
   final String emptyLabel;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +119,8 @@ class _BreakdownRowTile extends StatelessWidget {
                 const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
             child: Row(
               children: [
+                Icon(icon, size: 16, color: cs.onSurfaceVariant),
+                SizedBox(width: t.xs),
                 Expanded(
                   child: Text(label,
                       overflow: TextOverflow.ellipsis,

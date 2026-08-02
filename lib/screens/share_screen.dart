@@ -97,6 +97,13 @@ class _ShareScreenState extends State<ShareScreen> {
     _loadData();
   }
 
+  /// Derived client-side (no extra API call) — the standard "pages per
+  /// session" engagement metric, using visitor as a stand-in for session.
+  String get _pagesPerVisitor {
+    if (_summary.visitors == 0) return '0';
+    return (_summary.pageviews / _summary.visitors).toStringAsFixed(1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
@@ -182,6 +189,7 @@ class _ShareScreenState extends State<ShareScreen> {
               child: StatTile(
                   label: 'Pageviews',
                   value: '${_summary.pageviews}',
+                  icon: Icons.visibility_outlined,
                   accent: t.chartSeries[0]),
             ),
             SizedBox(width: t.m),
@@ -189,7 +197,16 @@ class _ShareScreenState extends State<ShareScreen> {
               child: StatTile(
                   label: 'Visitors',
                   value: '${_summary.visitors}',
+                  icon: Icons.people_outline_rounded,
                   accent: t.chartSeries[1]),
+            ),
+            SizedBox(width: t.m),
+            Expanded(
+              child: StatTile(
+                  label: 'Pages / visitor',
+                  value: _pagesPerVisitor,
+                  icon: Icons.auto_graph_rounded,
+                  accent: t.chartSeries[2]),
             ),
           ],
         ),

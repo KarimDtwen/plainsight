@@ -16,10 +16,19 @@ void main() {
 
   group('StatTile', () {
     testWidgets('renders its label and value', (tester) async {
-      // StatTile is designed to sit inside a Row (the dashboard's summary
-      // row lays two side by side) — it does not wrap itself in Expanded.
+      // StatTile's own root is a Row with an Expanded value/label column, so
+      // (like every real call site) it needs a bounded-width parent — the
+      // dashboard/share screens each wrap it in Expanded inside their
+      // summary Row.
       await tester.pumpWidget(wrap(
-        const Row(children: [StatTile(label: 'Pageviews', value: '42')]),
+        const Row(children: [
+          Expanded(
+            child: StatTile(
+                label: 'Pageviews',
+                value: '42',
+                icon: Icons.visibility_outlined),
+          ),
+        ]),
       ));
       expect(find.text('42'), findsOneWidget);
       expect(find.text('Pageviews'), findsOneWidget);

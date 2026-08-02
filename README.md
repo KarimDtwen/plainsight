@@ -70,19 +70,13 @@ No cookies, no fingerprinting, no third-party trackers, no personal data at rest
 
 ## Screenshots
 
-<!--
-TODO(Karim): 2-3 minutes when you next have a browser open —
-1. Open the demo share link above, screenshot the dashboard, save as docs/screenshot-dashboard.png
-2. Screenshot the breakdown/countries view, save as docs/screenshot-breakdown.png
-3. Record a short GIF: open a site's dashboard → click Share → Create link → Copy → paste it in a new
-   tab to show the read-only view loading, save as docs/demo-share-link.gif
-Then replace this comment with:
-![Dashboard](docs/screenshot-dashboard.png)
-![Breakdown](docs/screenshot-breakdown.png)
-![Share link demo](docs/demo-share-link.gif)
--->
+Dashboard and breakdown views, plus a share link being created and copied — all captured from the live demo site (30 days of realistic seeded traffic: weekday/weekend curves, weighted pages/referrers/countries/devices).
 
-The live dashboard is seeded with 30 days of realistic traffic (weekday/weekend curves, weighted pages/referrers/countries/devices) — click the **demo share link** at the top of this README to see it right now, no login needed. Static screenshots/GIF pending a 2-minute manual capture.
+![Dashboard](docs/screenshot-dashboard.png)
+![Country breakdown](docs/screenshot-breakdown.png)
+![Share link demo](docs/demo-share-link.gif)
+
+Or click the **demo share link** at the top of this README to explore it live, no login needed.
 
 ## Run the backend locally
 

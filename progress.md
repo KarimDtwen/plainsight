@@ -157,6 +157,10 @@ The prior session's browser tooling genuinely couldn't render/composite a page (
 
 **Nothing is left open.** Every M0–M5 deliverable is live, verified, and documented.
 
+### Visual polish pass (2026-08-02, same follow-up session)
+
+Karim's feedback on the fresh screenshots: the summary tiles and breakdown rows read as mostly-empty boxes. Fixed: `StatTile`'s root changed from a left-aligned `Column` to a `Row` with an icon in a tinted circle (same recipe as the sites list's site icon) leading an `Expanded` value/label column — fills the card instead of leaving a number floating in empty space. Added a third derived tile, **Pages / visitor** (`pageviews / visitors`, computed client-side, no extra API call) — a real engagement metric that also turns the summary row from 2 sparse tiles into 3 balanced ones. `BreakdownList` rows gained a small leading icon per dimension, value-aware for device (desktop/mobile/tablet get distinct icons). Rebuilt, redeployed, and re-captured `docs/`'s screenshots + GIF from the live updated dashboard so the README matches what's actually live. 21 Flutter tests green.
+
 ## Gotchas / things to know
 
 - **Never `pumpAndSettle` on gradient screens** — the aurora drift loops forever (same as UniMatch); pump fixed durations.
